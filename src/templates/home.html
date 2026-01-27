@@ -1,10 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends "layout.html" %}
+{% block content %}
+        <h1>SMILE Lookup</h1>
+        <form id="smileForm">
+            <div class="form-group">
+                <label for="smileId">Enter SMILE ID:</label>
+                <input type="text" id="smileId" name="smileId" placeholder="compound">
+            </div>
+            <button type="submit">Get SMILE</button>
+        </form>
+        <div class="result" id="result" style="display: none">
+            <div class="result-label">SMILE Result:</div>
+            <div class="result-value" id="smileOutput"></div>
+        </div>
 
-</body>
-</html>
+{% endblock %}
