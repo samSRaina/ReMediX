@@ -7,4 +7,7 @@
     <orderEntry type="jdk" jdkName="uv (drugRepurpose-app)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
+  <component name="TemplatesService">
+    <option name="TEMPLATE_CONFIGURATION" value="Jinja2" />
+  </component>
 </module>
