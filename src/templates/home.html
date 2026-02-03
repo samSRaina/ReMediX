@@ -1,16 +1,92 @@
 {% extends "layout.html" %}
 {% block content %}
-        <h1>SMILE Lookup</h1>
-        <form id="smileForm">
-            <div class="form-group">
-                <label for="smileId">Enter SMILE ID:</label>
-                <input type="text" id="smileId" name="smileId" placeholder="compound">
-            </div>
-            <button type="submit">Get SMILE</button>
-        </form>
-        <div class="result" id="result" style="display: none">
-            <div class="result-label">SMILE Result:</div>
-            <div class="result-value" id="smileOutput"></div>
+    <h1>SMILES Lookup</h1>
+    <form id="home-form">
+        <div class=home-form-group">
+            <label for="compound-name">Enter Compound Name:</label>
+            <input type="text" id="compound-name" name="compound-name" placeholder="e.g. aspirin">
+        </div>
+        <button type="submit">Get Properties</button>
+    </form>
+
+    <div class="results-container">
+        <div class="result-card" id="compound-result" style="display: none">
+            <div class="result-label">Compound:</div>
+            <div class="result-value" id="compound"></div>
+        </div>
+        <div class="result-card" id="smile-result">
+            <div class="result-label">SMILE:</div>
+            <div class="result-value" id="smile"></div>
+        </div>
+        <div class="result-card" id="pubchem-id-result">
+            <div class="result-label">PubChem ID:</div>
+            <div class="result-value" id="pubchem-id"></div>
+        </div>
+        <div class="result-card" id="iupac-result">
+            <div class="result-label">IUPAC Name: </div>
+            <div class="result-value" id="iupac"></div>
+        </div>
+        <div class="result-card" id="molecular-formula-result">
+            <div class="result-label">Molecular Formula:</div>
+            <div class="result-value" id="molecular-formula"></div>
+        </div>
+        <div class="result-card" id="molecular-weight-result">
+            <div class="result-label">Molecular Weight:</div>
+            <div class="result-value" id="molecular-weight"></div>
+        </div>
+        <div class="result-card" id="inchi-key-result">
+            <div class="result-label">InChI Key:</div>
+            <div class="result-value" id="inchi-key"></div>
+
+        </div>
+        <div class="result-card" id="hbd-result">
+            <div class="result-label">HBD</div>
+            <div class="result-value" id="hbd"></div>
+        </div>
+        <div class="result-card" id="hba-result">
+            <div class="result-label">HBA</div>
+            <div class="result-value" id="hba"></div>
+        </div>
+        <div class="result-card" id="xlogp-result">
+            <div class="result-label">XLogP</div>
+            <div class="result-value" id="xlogp"></div>
+        </div>
+        <div class="result-card" id="tpsa-result">
+            <div class="result-label">TPSA</div>
+            <div class="result-value" id="tpsa"></div>
+        </div>
+        <div class="result-card" id="rotatable-bonds-result">
+            <div class="result-label">Rotatable Bonds</div>
+            <div class="result-value" id="rotatable-bonds"></div>
         </div>
 
+    </div>
+
+    <script>
+        document.getElementById('home-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetchProperties();
+        });
+
+        async function fetchProperties() {
+            const name = document.getElementById("compound-name").value;
+            const response = await fetch(`/api/properties/${name}`);
+            const data = await response.json();
+
+            document.getElementById('compound').innerText = name;
+            document.getElementById('compound-result').style.display = 'block';
+            document.getElementById('smile').innerText = data.SMILES || '';
+            document.getElementById('pubchem-id').innerText = data.CID || '';
+            document.getElementById('iupac').innerText = data.IUPACName || '';
+            document.getElementById('molecular-formula').innerText = data.MolecularFormula || '';
+            document.getElementById('molecular-weight').innerText = data.MolecularWeight || '';
+            document.getElementById('inchi-key').innerText = data.InChIKey || '';
+            document.getElementById('hbd').innerText = data.HBondDonorCount || '';
+            document.getElementById('hba').innerText = data.HBondAcceptorCount || '';
+            document.getElementById('xlogp').innerText = data.XLogP || '';
+            document.getElementById('tpsa').innerText = data.TPSA || '';
+            document.getElementById('rotatable-bonds').innerText = data.RotatableBondCount || '';
+        }
+
+    </script>
 {% endblock %}

@@ -1,5 +1,6 @@
 import requests, logging
 from functools import lru_cache
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger= logging.getLogger(__name__)
@@ -13,7 +14,40 @@ def get_smile(name: str) -> str | None:
         r.raise_for_status()
 
         data= r.json()
-        return f"{name}: {data["PropertyTable"]["Properties"][0].get("SMILES")}"
+        return data["PropertyTable"]["Properties"][0].get("SMILES")
     except requests.RequestException as e:
-        logger.error(f"{e.response.status_code}")
-        return f"{e.response.status_code}"
+        if e.response:
+            logger.error(f"{e.response.status_code}")
+        else:
+            logger.error(f"{e}")
+        return None
+
+
+properties = [
+    "SMILES",
+    "IUPACName",
+    "MolecularFormula",
+    "MolecularWeight",
+    "InChIKey",
+    "XLogP",
+    "TPSA",
+    "HBondDonorCount",
+    "HBondAcceptorCount",
+    "RotatableBondCount",
+]
+def get_properties(name: str):
+    props_string=",".join(properties)
+    url=f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{name}/property/{props_string}/JSON"
+
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+
+        data=r.json()
+        return data["PropertyTable"]["Properties"][0]
+    except requests.RequestException as e:
+        if e.response:
+            logger.error(f"{e.response.status_code}")
+        else:
+            logger.error(f"{e}")
+        return None
