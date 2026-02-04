@@ -2,9 +2,14 @@
 {% block content %}
     <h1>SMILES Lookup</h1>
     <form id="home-form">
-        <div class=home-form-group">
-            <label for="compound-name">Enter Compound Name:</label>
-            <input type="text" id="compound-name" name="compound-name" placeholder="e.g. aspirin">
+        <div class="home-form-group">
+            <label for="compound-input">Enter Compound Name:</label>
+            <input type="text" id="compound-input" name="compound-name" placeholder="e.g. aspirin">
+
+            <div class="searchbar-toggle-wrapper">
+                <input type="checkbox" id="searchbar-toggle">
+                <label for="searchbar-toggle">Search via SMILE</label>
+            </div>
         </div>
         <button type="submit">Get Properties</button>
     </form>
@@ -68,12 +73,28 @@
             fetchProperties();
         });
 
+        //here input could be a SMILE or the name
         async function fetchProperties() {
-            const name = document.getElementById("compound-name").value;
-            const response = await fetch(`/api/properties/${name}`);
-            const data = await response.json();
 
-            document.getElementById('compound').innerText = name;
+            const input = document.getElementById("compound-input").value;
+            const isSmileSearch = document.getElementById("searchbar-toggle").checked
+
+            let response;
+            if (isSmileSearch) {
+                response = await fetch(`/api/compound/smile/${encodeURIComponent(input)}/properties`);
+            } else {
+                response = await fetch(`/api/compound/name/${input}/properties`);
+            }
+
+            if (!response.ok){
+                console.error('API error: ', response.status, response.statusText)
+                return;
+            }
+
+            const data = await response.json();
+            console.log('Response data', data)
+
+            document.getElementById('compound').innerText = input;
             document.getElementById('compound-result').style.display = 'block';
             document.getElementById('smile').innerText = data.SMILES || '';
             document.getElementById('pubchem-id').innerText = data.CID || '';
