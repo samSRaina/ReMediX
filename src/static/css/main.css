@@ -28,8 +28,10 @@ h1 {
     text-align: center;
 }
 
-.form-group {
-    margin-bottom: 16px;
+.home-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 label {
@@ -87,4 +89,15 @@ button:hover {
     color: #555;
     font-family: monospace;
     font-size: 14px;
+}
+
+.searchbar-toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+label[for="searchbar-toggle"] {
+    font-weight: normal;
+    color: #333333; cursor:pointer;
 }
