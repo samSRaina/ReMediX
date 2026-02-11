@@ -15,98 +15,169 @@
     </form>
 
     <div class="results-container">
-        <div class="result-card" id="compound-result" style="display: none">
-            <div class="result-label">Compound:</div>
-            <div class="result-value" id="compound"></div>
+        <div class="pubchem" id="pubchem">
+            <div class="result-card" id="compound-result" style="display: none">
+                <div class="result-label">Compound:</div>
+                <div class="result-value" id="compound"></div>
+            </div>
+            <div class="result-card" id="smile-result">
+                <div class="result-label">SMILE:</div>
+                <div class="result-value" id="smile"></div>
+            </div>
+            <div class="result-card" id="pubchem-id-result">
+                <div class="result-label">PubChem ID:</div>
+                <div class="result-value" id="pubchem-id"></div>
+            </div>
+            <div class="result-card" id="iupac-result">
+                <div class="result-label">IUPAC Name: </div>
+                <div class="result-value" id="iupac"></div>
+            </div>
+            <div class="result-card" id="molecular-formula-result">
+                <div class="result-label">Molecular Formula:</div>
+                <div class="result-value" id="molecular-formula"></div>
+            </div>
+            <div class="result-card" id="molecular-weight-result">
+                <div class="result-label">Molecular Weight:</div>
+                <div class="result-value" id="molecular-weight"></div>
+            </div>
+            <div class="result-card" id="inchi-key-result">
+                <div class="result-label">InChI Key:</div>
+                <div class="result-value" id="inchi-key"></div>
+            </div>
+            <div class="result-card" id="hbd-result">
+                <div class="result-label">HBD</div>
+                <div class="result-value" id="hbd"></div>
+            </div>
+            <div class="result-card" id="hba-result">
+                <div class="result-label">HBA</div>
+                <div class="result-value" id="hba"></div>
+            </div>
+            <div class="result-card" id="xlogp-result">
+                <div class="result-label">XLogP</div>
+                <div class="result-value" id="xlogp"></div>
+            </div>
+            <div class="result-card" id="tpsa-result">
+                <div class="result-label">TPSA</div>
+                <div class="result-value" id="tpsa"></div>
+            </div>
+            <div class="result-card" id="rotatable-bonds-result">
+                <div class="result-label">Rotatable Bonds</div>
+                <div class="result-value" id="rotatable-bonds"></div>
+            </div>
         </div>
-        <div class="result-card" id="smile-result">
-            <div class="result-label">SMILE:</div>
-            <div class="result-value" id="smile"></div>
-        </div>
-        <div class="result-card" id="pubchem-id-result">
-            <div class="result-label">PubChem ID:</div>
-            <div class="result-value" id="pubchem-id"></div>
-        </div>
-        <div class="result-card" id="iupac-result">
-            <div class="result-label">IUPAC Name: </div>
-            <div class="result-value" id="iupac"></div>
-        </div>
-        <div class="result-card" id="molecular-formula-result">
-            <div class="result-label">Molecular Formula:</div>
-            <div class="result-value" id="molecular-formula"></div>
-        </div>
-        <div class="result-card" id="molecular-weight-result">
-            <div class="result-label">Molecular Weight:</div>
-            <div class="result-value" id="molecular-weight"></div>
-        </div>
-        <div class="result-card" id="inchi-key-result">
-            <div class="result-label">InChI Key:</div>
-            <div class="result-value" id="inchi-key"></div>
 
-        </div>
-        <div class="result-card" id="hbd-result">
-            <div class="result-label">HBD</div>
-            <div class="result-value" id="hbd"></div>
-        </div>
-        <div class="result-card" id="hba-result">
-            <div class="result-label">HBA</div>
-            <div class="result-value" id="hba"></div>
-        </div>
-        <div class="result-card" id="xlogp-result">
-            <div class="result-label">XLogP</div>
-            <div class="result-value" id="xlogp"></div>
-        </div>
-        <div class="result-card" id="tpsa-result">
-            <div class="result-label">TPSA</div>
-            <div class="result-value" id="tpsa"></div>
-        </div>
-        <div class="result-card" id="rotatable-bonds-result">
-            <div class="result-label">Rotatable Bonds</div>
-            <div class="result-value" id="rotatable-bonds"></div>
-        </div>
+        <div class="drugbank" id="drugbank">
+            <div class="result-card" id="drug-group-result">
+                <div class="result-label">Drug Group: </div>
+                <div class="result-value" id="drug-group"></div>
+            </div>
 
+            <!--
+            <div class="result-card" id="regulatory-label-result">
+                <div class="result-label">Regulatory Label: </div>
+                <div class="result-value" id="regulatory-label"></div>
+            </div>
+            -->
+            <div class="result-card" id="indications-result">
+                <div class="result-label">Indications: </div>
+                <div class="result-value" id="indications"></div>
+            </div>
+
+            <div class="result-card" id="targets-result">
+                <div class="result-label">Targets: </div>
+                <div class="result-value" id="targets"></div>
+            </div>
+
+            <div class="result-card" id="category-result">
+                <div class="result-label">Categories: </div>
+                <div class="result-value" id="category"></div>
+            </div>
+        </div>
     </div>
 
+    <div id="error-message" style="color: red; text-align: center; margin-top: 20px;"></div>
+
     <script>
+        // clear all result fields
+        function clearResults() {
+            // pubChem fields
+            document.getElementById('compound').innerText = '';
+            document.getElementById('compound-result').style.display = 'none';
+            document.getElementById('smile').innerText = '';
+            document.getElementById('pubchem-id').innerText = '';
+            document.getElementById('iupac').innerText = '';
+            document.getElementById('molecular-formula').innerText = '';
+            document.getElementById('molecular-weight').innerText = '';
+            document.getElementById('inchi-key').innerText = '';
+            document.getElementById('hbd').innerText = '';
+            document.getElementById('hba').innerText = '';
+            document.getElementById('xlogp').innerText = '';
+            document.getElementById('tpsa').innerText = '';
+            document.getElementById('rotatable-bonds').innerText = '';
+
+            // drugBank fields
+            document.getElementById('drug-group').innerText = '';
+            // document.getElementById('regulatory-label').innerText = ''; // Element is commented out in HTML
+            document.getElementById('indications').innerText = '';
+            document.getElementById('targets').innerText = '';
+            document.getElementById('category').innerText = '';
+        }
+
         document.getElementById('home-form').addEventListener('submit', function(e) {
             e.preventDefault();
+            document.getElementById('error-message').innerText = '';
+            clearResults();
             fetchProperties();
         });
 
-        //here input could be a SMILE or the name
         async function fetchProperties() {
-
             const input = document.getElementById("compound-input").value;
-            const isSmileSearch = document.getElementById("searchbar-toggle").checked
+            const isSmileSearch = document.getElementById("searchbar-toggle").checked;
+            let responsePubchem;
+            try {
+                if (isSmileSearch) {
+                    responsePubchem = await fetch(`/api/compound/smile/${encodeURIComponent(input)}/properties`);
+                } else {
+                    responsePubchem = await fetch(`/api/compound/name/${encodeURIComponent(input)}/properties`);
+                }
+                if (!responsePubchem.ok) {
+                    throw new Error('Compound not found or API error');
+                }
+                const data = await responsePubchem.json();
+                document.getElementById('compound').innerText = input;
+                document.getElementById('compound-result').style.display = 'block';
+                document.getElementById('smile').innerText = data.SMILES || '';
+                document.getElementById('pubchem-id').innerText = data.CID || '';
+                document.getElementById('iupac').innerText = data.IUPACName || '';
+                document.getElementById('molecular-formula').innerText = data.MolecularFormula || '';
+                document.getElementById('molecular-weight').innerText = data.MolecularWeight || '';
+                document.getElementById('inchi-key').innerText = data.InChIKey || '';
+                document.getElementById('hbd').innerText = data.HBondDonorCount || '';
+                document.getElementById('hba').innerText = data.HBondAcceptorCount || '';
+                document.getElementById('xlogp').innerText = data.XLogP || '';
+                document.getElementById('tpsa').innerText = data.TPSA || '';
+                document.getElementById('rotatable-bonds').innerText = data.RotatableBondCount || '';
 
-            let response;
-            if (isSmileSearch) {
-                response = await fetch(`/api/compound/smile/${encodeURIComponent(input)}/properties`);
-            } else {
-                response = await fetch(`/api/compound/name/${input}/properties`);
+                // DrugBank fetch
+                if (data.InChIKey) {
+                    const responseDrugbank = await fetch(`/api/drugbank/inchikey/${data.InChIKey}`);
+                    if (responseDrugbank.ok) {
+                        const drugbankData = await responseDrugbank.json();
+                        document.getElementById('drug-group').innerText = (drugbankData.groups || []).join(', ');
+                        document.getElementById('indications').innerText = drugbankData.indication || '';
+                        document.getElementById('targets').innerText = (drugbankData.targets || []).join(', ');
+                        document.getElementById('category').innerText = (drugbankData.categories || []).join(', ');
+                    } else {
+                        document.getElementById('drug-group').innerText = '';
+                        document.getElementById('indications').innerText = '';
+                        document.getElementById('targets').innerText = '';
+                        document.getElementById('category').innerText = '';
+                    }
+                }
+            } catch (err) {
+                clearResults();
+                document.getElementById('error-message').innerText = err.message || 'An error occurred.';
             }
-
-            if (!response.ok){
-                console.error('API error: ', response.status, response.statusText)
-                return;
-            }
-
-            const data = await response.json();
-            console.log('Response data', data)
-
-            document.getElementById('compound').innerText = input;
-            document.getElementById('compound-result').style.display = 'block';
-            document.getElementById('smile').innerText = data.SMILES || '';
-            document.getElementById('pubchem-id').innerText = data.CID || '';
-            document.getElementById('iupac').innerText = data.IUPACName || '';
-            document.getElementById('molecular-formula').innerText = data.MolecularFormula || '';
-            document.getElementById('molecular-weight').innerText = data.MolecularWeight || '';
-            document.getElementById('inchi-key').innerText = data.InChIKey || '';
-            document.getElementById('hbd').innerText = data.HBondDonorCount || '';
-            document.getElementById('hba').innerText = data.HBondAcceptorCount || '';
-            document.getElementById('xlogp').innerText = data.XLogP || '';
-            document.getElementById('tpsa').innerText = data.TPSA || '';
-            document.getElementById('rotatable-bonds').innerText = data.RotatableBondCount || '';
         }
 
     </script>
