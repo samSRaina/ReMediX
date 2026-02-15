@@ -3,7 +3,6 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from src.routers import api, views
-from src.models import exceptions
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "src" / "static" / "css"), name="static")
 app.include_router(api.router)
