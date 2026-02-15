@@ -4,6 +4,6 @@ from pathlib import Path
 
 from src.routers import api, views
 app = FastAPI()
-app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "src" / "static" / "css"), name="static")
+app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "src" / "static"), name="static")
 app.include_router(api.router)
 app.include_router(views.router)
