@@ -1,8 +1,6 @@
 
 from fastapi import APIRouter, HTTPException
-import src.services.logic as func
-import src.services.drugbank_parser as drugbank
-
+from ..clients import pubchem_client, drugbank_client
 router= APIRouter(prefix="/api")
 
 #@router.get("/smile/{smile_id}")
@@ -10,19 +8,19 @@ router= APIRouter(prefix="/api")
 #    return func.get_smile(smile_id)
 
 @router.get("/compound/name/{name}/properties")
-async def get_properties_api(name : str):
-    return func.get_pubchem_properties(name)
+async def get_properties_by_name_api(name : str):
+    return pubchem_client.PubChemClient().search_by_name(name)
 
 
 @router.get("/compound/smile/{smile}/properties")
-async def get_properties_via_smile_api(smile: str):
-    return func.get_pubchem_properties_via_smile(smile)
+async def get_properties_by_smile_api(smile: str):
+    return pubchem_client.PubChemClient().search_by_smile(smile)
 
 
 # DrugBank database endpoints
 @router.get("/drugbank/inchikey/{inchikey}")
-async def get_drug_by_inchikey_api(inchikey: str):
-    result = drugbank.get_drug_by_inchikey(inchikey)
+async def get_properties_by_inchikey(inchikey: str):
+    result = drugbank_client.DrugBankClient()
     if result is None:
         raise HTTPException(status_code=404, detail=f"Drug '{inchikey}' not found in DrugBank database")
-    return result
+    return result.search_drug_by_inchikey(inchikey)
