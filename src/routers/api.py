@@ -7,8 +7,9 @@ router= APIRouter(prefix="/api")
 #async def get_smile_api(smile_id: str):
 #    return func.get_smile(smile_id)
 
+# PubChem database endpoints
 @router.get("/compound/name/{name}/properties")
-async def get_properties_by_name_api(name : str):
+async def get_properties_by_name_api(name: str):
     return pubchem_client.PubChemClient().search_by_name(name)
 
 
@@ -18,7 +19,7 @@ async def get_properties_by_smile_api(smile: str):
 
 
 # DrugBank database endpoints
-@router.get("/drugbank/inchikey/{inchikey}")
+@router.get("/drugbank/inchikey/{inchikey}/properties")
 async def get_properties_by_inchikey(inchikey: str):
     result = drugbank_client.DrugBankClient()
     if result is None:
