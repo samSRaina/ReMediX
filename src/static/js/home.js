@@ -94,7 +94,7 @@ async function fetchProperties() {
         // Fetch DrugBank in parallel if InChIKey exists
         let drugbankData = null;
         if (pubchemData.InChIKey) {
-            const responseDrugbank = await fetch(`/api/drugbank/inchikey/${pubchemData.InChIKey}`);
+            const responseDrugbank = await fetch(`/api/drugbank/inchikey/${pubchemData.InChIKey}/properties`);
             if (responseDrugbank.ok) {
                 drugbankData = await responseDrugbank.json();
             }
