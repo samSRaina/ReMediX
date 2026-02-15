@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "chembl-webresource-client>=0.10.9",
     "fastapi[standard]>=0.128.0",
     "lxml>=6.0.2",
     "requests>=2.32.5",

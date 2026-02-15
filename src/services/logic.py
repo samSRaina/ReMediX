@@ -57,3 +57,4 @@ def get_pubchem_properties_via_smile(smile: str):
 # DrugBank InChIKey lookup
 def get_drugbank_properties_via_inchikey(key: str):
     return get_drug_by_inchikey(key)
+
