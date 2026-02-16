@@ -1,6 +1,7 @@
 
 from fastapi import APIRouter, HTTPException
-from ..clients import pubchem_client, drugbank_client
+from typing import Optional
+from ..clients import pubchem_client, drugbank_client, chembl_client
 router= APIRouter(prefix="/api")
 
 #@router.get("/smile/{smile_id}")
@@ -25,3 +26,13 @@ async def get_properties_by_inchikey(inchikey: str):
     if result is None:
         raise HTTPException(status_code=404, detail=f"Drug '{inchikey}' not found in DrugBank database")
     return result.search_drug_by_inchikey(inchikey)
+
+
+# ChEMBL database endpoints
+@router.get("/chembl/inchikey/{inchikey}/bioactivity")
+async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str] = None):
+    result = chembl_client.ChEMBLClient().get_by_inchikey(inchikey, standard_type)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"No bioactivity data found for '{inchikey}'")
+    return result
+
