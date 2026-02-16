@@ -21,6 +21,89 @@ const DRUGBANK_FIELDS = {
     'category': { key: 'categories', isArray: true }
 };
 
+// Store current InChIKey for bioactivity fetching
+let currentInChIKey = null;
+let currentBioactivityType = 'IC50';
+
+// Bioactivity table columns
+const BIOACTIVITY_COLUMNS = [
+    'target_chembl_id',
+    'target_name',
+    'target_type',
+    'target_organism',
+    'standard_type',
+    'standard_value',
+    'standard_units'
+];
+
+// Fetch and display bioactivity data
+async function fetchBioactivity(inchiKey, standardType) {
+    const tbody = document.getElementById('bioactivity-tbody');
+    const emptyState = document.getElementById('bioactivity-empty');
+
+    // Clear existing data
+    tbody.innerHTML = '';
+    emptyState.classList.remove('show');
+
+    if (!inchiKey) {
+        emptyState.classList.add('show');
+        return;
+    }
+
+    try {
+        const url = `/api/chembl/inchikey/${inchiKey}/bioactivity?standard_type=${standardType}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            emptyState.classList.add('show');
+            return;
+        }
+
+        const data = await response.json();
+
+        if (!data || data.length === 0) {
+            emptyState.classList.add('show');
+            return;
+        }
+
+        // Populate table rows
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            BIOACTIVITY_COLUMNS.forEach(col => {
+                const td = document.createElement('td');
+                td.textContent = row[col] || '-';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error('Bioactivity fetch error:', err);
+        emptyState.classList.add('show');
+    }
+}
+
+// Handle tab click
+function handleTabClick(e) {
+    const tab = e.target;
+    if (!tab.classList.contains('bioactivity-tab')) return;
+
+    // Update active state
+    document.querySelectorAll('.bioactivity-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    // Get selected type and fetch data
+    currentBioactivityType = tab.dataset.type;
+    fetchBioactivity(currentInChIKey, currentBioactivityType);
+}
+
+// Clear bioactivity table
+function clearBioactivity() {
+    document.getElementById('bioactivity-tbody').innerHTML = '';
+    document.getElementById('bioactivity-empty').classList.add('show');
+    currentInChIKey = null;
+}
+
 // Clear all result fields
 function clearResults() {
     // Clear PubChem fields
@@ -33,6 +116,9 @@ function clearResults() {
     Object.keys(DRUGBANK_FIELDS).forEach(id => {
         document.getElementById(id).innerText = '';
     });
+
+    // Clear bioactivity table
+    clearBioactivity();
 }
 
 // Display PubChem data
@@ -108,6 +194,14 @@ async function fetchProperties() {
             clearDrugbankData();
         }
 
+        // Fetch bioactivity data if InChIKey exists
+        if (pubchemData.InChIKey) {
+            currentInChIKey = pubchemData.InChIKey;
+            fetchBioactivity(currentInChIKey, currentBioactivityType);
+        } else {
+            clearBioactivity();
+        }
+
     } catch (err) {
         showError(err.message || 'An error occurred.');
     }
@@ -121,5 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         clearResults();
         fetchProperties();
     });
+
+    // Add bioactivity tab click listeners
+    document.querySelector('.bioactivity-tabs').addEventListener('click', handleTabClick);
+
+    // Show empty state initially
+    document.getElementById('bioactivity-empty').classList.add('show');
 });
 

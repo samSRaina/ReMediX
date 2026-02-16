@@ -93,6 +93,34 @@
                 <div class="result-value" id="category"></div>
             </div>
         </div>
+
+        <div class="chembl" id="chembl">
+            <label>Bioactivity</label>
+            <div class="bioactivity-tabs">
+                <button type="button" class="bioactivity-tab active" data-type="IC50">IC50</button>
+                <button type="button" class="bioactivity-tab" data-type="AC50">AC50</button>
+                <button type="button" class="bioactivity-tab" data-type="Ki">Ki</button>
+            </div>
+            <div class="bioactivity-table-container">
+                <table class="bioactivity-table" id="bioactivity-table">
+                    <thead>
+                        <tr>
+                            <th>Target ChEMBL ID</th>
+                            <th>Target Name</th>
+                            <th>Target Type</th>
+                            <th>Target Organism</th>
+                            <th>Standard Type</th>
+                            <th>Standard Value</th>
+                            <th>Standard Units</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bioactivity-tbody">
+                        <!-- Data rows will be inserted here -->
+                    </tbody>
+                </table>
+                <div class="bioactivity-empty" id="bioactivity-empty">No bioactivity data available</div>
+            </div>
+        </div>
     </div>
 
     <div id="error-message" style="color: red; text-align: center; margin-top: 20px;"></div>
