@@ -1,255 +1,159 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
+/* ── General ── */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #f5f5f5;
-    min-height: 100vh;
-    padding: 40px 20px;
 }
 
-.container {
-    background: white;
-    padding: 40px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.results-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-    margin-top: 20px;
-    width: 100%;
-}
-
-.pubchem {
-    grid-column: 1;
-    background: #fafafa;
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid #eee;
-}
-
-.drugbank {
-    grid-column: 2;
-    background: #fafafa;
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid #eee;
-}
-
-h1 {
-    color: #333;
-    margin-bottom: 24px;
-    text-align: center;
-}
-
-.home-form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-label {
-    display: block;
-    margin-bottom: 6px;
-    color: #333;
-    font-weight: 500;
-}
-
-input[type="text"] {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 16px;
-}
-
-input[type="text"]:focus {
-    outline: none;
-    border-color: #333;
-}
-
-button {
-    width: 100%;
-    padding: 12px;
-    background: #333;
-    color: white;
+/* ── Cards ── */
+.card {
     border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    font-weight: 500;
-    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    height: 100%;
 }
 
-button:hover {
-    background: #555;
+.card-header {
+    background: #2c3e50;
+    color: #fff;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+    padding: 12px 20px;
 }
 
-.result-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 10px;
-    padding: 12px 16px;
-    background: #f9f9f9;
-    border-radius: 4px;
-    border-left: 3px solid #333;
+/* ── Data Tables (PubChem / DrugBank) ── */
+.data-table {
+    margin-bottom: 0;
+    font-size: 0.88rem;
+    table-layout: fixed;
+    width: 100%;
 }
 
-.result-label {
+.data-table th {
+    width: 35%;
+    vertical-align: top;
+    color: #495057;
     font-weight: 600;
+    border-right: 2px solid #e9ecef;
+    background: #f8f9fa;
+    padding: 10px 14px;
+}
+
+.data-table td {
+    width: 65%;
+    vertical-align: top;
     color: #333;
-    flex-shrink: 0;
-    margin-right: 16px;
+    padding: 10px 14px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
 }
 
-.result-value {
-    color: #555;
-    font-family: monospace;
-    font-size: 14px;
-    word-break: break-all;
-    text-align: right;
+/* Alternate row colors */
+.data-table tbody tr:nth-child(odd) {
+    background-color: #fff;
 }
 
-.searchbar-toggle-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.data-table tbody tr:nth-child(even) {
+    background-color: #f7f9fc;
 }
 
-label[for="searchbar-toggle"] {
-    font-weight: normal;
-    color: #333333; cursor:pointer;
+/* Hover */
+.data-table tbody tr:hover td,
+.data-table tbody tr:hover th {
+    background-color: #e8f0fe;
 }
 
-/* ChEMBL Bioactivity Section */
-.chembl {
-    grid-column: 1 / -1;
-    background: #fafafa;
-    padding: 20px;
-    border-radius: 8px;
-    border: 1px solid #eee;
-    margin-top: 20px;
-}
-
-.chembl > label {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 12px;
+/* Long text cells - scrollable */
+.scrollable-cell {
+    max-height: 140px;
+    overflow-y: auto;
     display: block;
 }
 
-/* Bioactivity Tabs */
-.bioactivity-tabs {
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    margin-bottom: 16px;
+/* ── Form ── */
+.form-control:focus {
+    border-color: #2c3e50;
+    box-shadow: 0 0 0 0.2rem rgba(44, 62, 80, 0.15);
 }
 
-.bioactivity-tab {
-    width: auto !important;
-    flex: 0 0 auto;
-    padding: 8px 24px;
-    background: #e0e0e0;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+.btn-dark {
+    background-color: #2c3e50;
+    border-color: #2c3e50;
+}
+
+.btn-dark:hover {
+    background-color: #1a252f;
+}
+
+.form-check-label {
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
+    user-select: none;
+}
+
+/* ── Bioactivity Tabs ── */
+.nav-pills .nav-link {
     color: #555;
+    background: #e9ecef;
+    border-radius: 6px;
+    margin-right: 6px;
+    font-weight: 500;
     transition: all 0.2s ease;
 }
 
-.bioactivity-tab:hover {
-    background: #d0d0d0;
+.nav-pills .nav-link:hover {
+    background: #dee2e6;
 }
 
-.bioactivity-tab.active {
-    background: #333;
-    color: white;
-    border-color: #333;
+.nav-pills .nav-link.active {
+    background: #2c3e50;
+    color: #fff;
 }
 
-/* Scrollable Table Container */
-.bioactivity-table-container {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: #fff;
+/* ── Bioactivity Table ── */
+.table-responsive {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
 }
 
-/* Bioactivity Table */
-.bioactivity-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
+#bioactivity-table {
+    font-size: 0.85rem;
 }
 
-.bioactivity-table thead {
-    position: sticky;
-    top: 0;
-    background: #333;
-    color: white;
-    z-index: 1;
-}
-
-.bioactivity-table th,
-.bioactivity-table td {
-    padding: 10px 12px;
-    text-align: left;
-    border-bottom: 1px solid #eee;
-}
-
-.bioactivity-table th {
-    font-weight: 600;
+#bioactivity-table thead th {
     white-space: nowrap;
+    font-weight: 600;
+    letter-spacing: 0.3px;
 }
 
-.bioactivity-table tbody tr:hover {
-    background: #f5f5f5;
+#bioactivity-table tbody td {
+    vertical-align: middle;
 }
 
-.bioactivity-table tbody tr:nth-child(even) {
-    background: #fafafa;
+/* ── Scrollbar ── */
+.table-responsive::-webkit-scrollbar,
+.scrollable-cell::-webkit-scrollbar {
+    width: 6px;
 }
 
-/* Empty state */
-.bioactivity-empty {
-    padding: 40px;
-    text-align: center;
-    color: #999;
-    font-style: italic;
-    display: none;
-}
-
-.bioactivity-empty.show {
-    display: block;
-}
-
-/* Custom scrollbar for table */
-.bioactivity-table-container::-webkit-scrollbar {
-    width: 8px;
-}
-
-.bioactivity-table-container::-webkit-scrollbar-track {
+.table-responsive::-webkit-scrollbar-track,
+.scrollable-cell::-webkit-scrollbar-track {
     background: #f1f1f1;
 }
 
-.bioactivity-table-container::-webkit-scrollbar-thumb {
-    background: #888;
+.table-responsive::-webkit-scrollbar-thumb,
+.scrollable-cell::-webkit-scrollbar-thumb {
+    background: #aaa;
     border-radius: 4px;
 }
 
-.bioactivity-table-container::-webkit-scrollbar-thumb:hover {
-    background: #555;
+.table-responsive::-webkit-scrollbar-thumb:hover,
+.scrollable-cell::-webkit-scrollbar-thumb:hover {
+    background: #777;
 }
 
+/* ── Error Message ── */
+#error-message {
+    font-weight: 500;
+}
