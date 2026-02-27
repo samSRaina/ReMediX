@@ -1,0 +1,152 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1 class="text-center mb-4">SMILES Lookup</h1>
+    <form id="home-form" class="mb-4">
+        <div class="mb-3">
+            <label for="compound-input" class="form-label">Enter Compound Name:</label>
+            <input type="text" id="compound-input" name="compound-name" class="form-control" placeholder="e.g. aspirin">
+
+            <div class="form-check form-switch mt-2">
+                <input type="checkbox" id="searchbar-toggle" class="form-check-input">
+                <label for="searchbar-toggle" class="form-check-label">Search via SMILE</label>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-dark w-100">Get Properties</button>
+    </form>
+
+    <div class="row g-4">
+        <!-- PubChem Column -->
+        <div class="col-md-6" id="pubchem">
+            <div class="card">
+                <div class="card-header">PubChem</div>
+                <div class="card-body p-0">
+                    <table class="data-table">
+                        <tbody>
+                            <tr id="compound-result" style="display: none">
+                                <th>Compound</th>
+                                <td id="compound"></td>
+                            </tr>
+                            <tr>
+                                <th>SMILE</th>
+                                <td id="smile"></td>
+                            </tr>
+                            <tr>
+                                <th>PubChem ID</th>
+                                <td id="pubchem-id"></td>
+                            </tr>
+                            <tr>
+                                <th>IUPAC Name</th>
+                                <td id="iupac"></td>
+                            </tr>
+                            <tr>
+                                <th>Molecular Formula</th>
+                                <td id="molecular-formula"></td>
+                            </tr>
+                            <tr>
+                                <th>Molecular Weight</th>
+                                <td id="molecular-weight"></td>
+                            </tr>
+                            <tr>
+                                <th>InChI Key</th>
+                                <td id="inchi-key"></td>
+                            </tr>
+                            <tr>
+                                <th>HBD</th>
+                                <td id="hbd"></td>
+                            </tr>
+                            <tr>
+                                <th>HBA</th>
+                                <td id="hba"></td>
+                            </tr>
+                            <tr>
+                                <th>XLogP</th>
+                                <td id="xlogp"></td>
+                            </tr>
+                            <tr>
+                                <th>TPSA</th>
+                                <td id="tpsa"></td>
+                            </tr>
+                            <tr>
+                                <th>Rotatable Bonds</th>
+                                <td id="rotatable-bonds"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- DrugBank Column -->
+        <div class="col-md-6" id="drugbank">
+            <div class="card">
+                <div class="card-header">DrugBank</div>
+                <div class="card-body p-0">
+                    <table class="data-table">
+                        <tbody>
+                            <tr>
+                                <th>Drug Group</th>
+                                <td id="drug-group"></td>
+                            </tr>
+                            <tr>
+                                <th>Indications</th>
+                                <td id="indications" class="scrollable-cell"></td>
+                            </tr>
+                            <tr>
+                                <th>Targets</th>
+                                <td id="targets" class="scrollable-cell"></td>
+                            </tr>
+                            <tr>
+                                <th>Categories</th>
+                                <td id="category" class="scrollable-cell"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ChEMBL Bioactivity (Full Width) -->
+        <div class="col-12" id="chembl">
+            <div class="card">
+                <div class="card-header">Bioactivity</div>
+                <div class="card-body">
+                    <ul class="nav nav-pills mb-3" id="bioactivity-tabs">
+                        <li class="nav-item">
+                            <button type="button" class="nav-link active bioactivity-tab" data-type="IC50">IC50</button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link bioactivity-tab" data-type="AC50">AC50</button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link bioactivity-tab" data-type="Ki">Ki</button>
+                        </li>
+                    </ul>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-striped table-hover" id="bioactivity-table">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Target ChEMBL ID</th>
+                                    <th>Target Name</th>
+                                    <th>Target Type</th>
+                                    <th>Target Organism</th>
+                                    <th>Standard Type</th>
+                                    <th>Standard Value</th>
+                                    <th>Standard Units</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bioactivity-tbody">
+                            </tbody>
+                        </table>
+                        <div class="text-center text-muted fst-italic py-4" id="bioactivity-empty" style="display: none;">
+                            No bioactivity data available
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="error-message" class="text-danger text-center mt-3"></div>
+
+    <script src="{{ url_for('static', path='js/home.js') }}"></script>
+{% endblock %}

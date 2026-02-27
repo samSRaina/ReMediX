@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException
 from typing import Optional
-from ..clients import pubchem_client, drugbank_client, chembl_client
+from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client
 router= APIRouter(prefix="/api")
 
 #@router.get("/smile/{smile_id}")
@@ -36,3 +36,16 @@ async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str
         raise HTTPException(status_code=404, detail=f"No bioactivity data found for '{inchikey}'")
     return result
 
+@router.get("/chembl/inchikey/{inchkey}/bioactivity/{target_chembl_id}/target")
+async def get_target_data(target_chembl_id: str):
+    result = chembl_client.ChEMBLClient().get_target_data(target_chembl_id)
+    if not result:
+        raise HTTPException(status_code =404, detail=f"No target data found for {target_chembl_id}")
+    return result
+
+@router.get("/geneAnalysis/accession/{accession_id}")
+async def get_gene_analysis(accession_id: str, disease: str):
+    disease_signatures = creeds_client.get_disease_signatures(disease)
+    accession_object = creeds_client.CreedsClient(accession_id)
+    single_gene_perturbations = accession_object.get_single_gene_perturbations()
+    return accession_object.match_genes(disease_signatures, single_gene_perturbations )

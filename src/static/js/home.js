@@ -43,10 +43,10 @@ async function fetchBioactivity(inchiKey, standardType) {
 
     // Clear existing data
     tbody.innerHTML = '';
-    emptyState.classList.remove('show');
+    emptyState.style.display = 'none';
 
     if (!inchiKey) {
-        emptyState.classList.add('show');
+        emptyState.style.display = 'block';
         return;
     }
 
@@ -55,14 +55,14 @@ async function fetchBioactivity(inchiKey, standardType) {
         const response = await fetch(url);
 
         if (!response.ok) {
-            emptyState.classList.add('show');
+            emptyState.style.display = 'block';
             return;
         }
 
         const data = await response.json();
 
         if (!data || data.length === 0) {
-            emptyState.classList.add('show');
+            emptyState.style.display = 'block';
             return;
         }
 
@@ -79,7 +79,7 @@ async function fetchBioactivity(inchiKey, standardType) {
 
     } catch (err) {
         console.error('Bioactivity fetch error:', err);
-        emptyState.classList.add('show');
+        emptyState.style.display = 'block';
     }
 }
 
@@ -100,7 +100,7 @@ function handleTabClick(e) {
 // Clear bioactivity table
 function clearBioactivity() {
     document.getElementById('bioactivity-tbody').innerHTML = '';
-    document.getElementById('bioactivity-empty').classList.add('show');
+    document.getElementById('bioactivity-empty').style.display = 'block';
     currentInChIKey = null;
 }
 
@@ -217,9 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Add bioactivity tab click listeners
-    document.querySelector('.bioactivity-tabs').addEventListener('click', handleTabClick);
+    document.getElementById('bioactivity-tabs').addEventListener('click', handleTabClick);
 
     // Show empty state initially
-    document.getElementById('bioactivity-empty').classList.add('show');
+    document.getElementById('bioactivity-empty').style.display = 'block';
 });
 
