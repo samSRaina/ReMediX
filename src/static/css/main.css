@@ -157,3 +157,68 @@ body {
 #error-message {
     font-weight: 500;
 }
+
+/* ── Gene Expressions Table ── */
+.gene-table-wrapper {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    max-height: 65vh;
+    overflow-y: auto;
+}
+
+#gene-table {
+    font-size: 0.85rem;
+}
+
+#gene-table thead th {
+    white-space: nowrap;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+#gene-table tbody td {
+    vertical-align: middle;
+}
+
+/* Clickable rows */
+.gene-row {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.gene-row:hover {
+    background-color: #d6e9ff !important;
+}
+
+/* Sortable header icons */
+.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sort-icon {
+    opacity: 0.4;
+    font-size: 0.75rem;
+    margin-left: 4px;
+}
+
+.sortable:hover .sort-icon {
+    opacity: 0.8;
+}
+
+/* Pagination overrides */
+.pagination .page-link {
+    color: #2c3e50;
+    font-size: 0.85rem;
+    padding: 6px 12px;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #2c3e50;
+    border-color: #2c3e50;
+    color: #fff;
+}
+

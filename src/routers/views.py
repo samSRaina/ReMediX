@@ -9,3 +9,7 @@ templates = (Jinja2Templates(directory=Path(__file__).resolve().parent.parent/"s
 async def home(request: Request):
     return templates.TemplateResponse(request, "home.html")
 
+@router.get("/geneExpressions", include_in_schema=False, name="gene_expressions")
+async def gene_expressions(request: Request):
+    return templates.TemplateResponse(request, "gene_expressions.html")
+

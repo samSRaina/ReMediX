@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException
 from typing import Optional
-from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client
+from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client, geneCards_client
 router= APIRouter(prefix="/api")
 
 #@router.get("/smile/{smile_id}")
@@ -49,3 +49,30 @@ async def get_gene_analysis(accession_id: str, disease: str):
     accession_object = creeds_client.CreedsClient(accession_id)
     single_gene_perturbations = accession_object.get_single_gene_perturbations()
     return accession_object.match_genes(disease_signatures, single_gene_perturbations )
+
+@router.get("/geneExpressions")
+async def get_gene_expressions(page: int = 1, page_size: int = 50, search: Optional[str] = None):
+    all_data = geneCards_client.get_geo_data()
+
+    # Filter by search term (searches Gene.symbol column)
+    if search:
+        search_lower = search.lower()
+        all_data = [
+            row for row in all_data
+            if row.get("Gene.symbol") and search_lower in str(row["Gene.symbol"]).lower()
+        ]
+
+    total = len(all_data)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return {
+        "data": all_data[start:end],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+    }
