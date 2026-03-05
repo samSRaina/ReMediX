@@ -47,14 +47,35 @@ class CreedsClient:
         return f"beneficial: {beneficial}",f"harmful: {harmful}"
 
 
+def match_gene_set(gene_list: list[str]) -> dict:
+    """
+    For each gene in the list, match disease signatures against
+    single gene perturbations and return beneficial/harmful counts.
+    Disease is fixed to 'pulmonary hypertension'.
+    """
+    disease = "pulmonary hypertension"
+    disease_signatures = get_disease_signatures(disease)
+    results = []
+    for gene in gene_list:
+        client = CreedsClient(gene)
+        single_perturbations = client.get_single_gene_perturbations()
+        beneficial_str, harmful_str = client.match_genes(disease_signatures, single_perturbations)
+        results.append({
+            "gene": gene,
+            "beneficial": beneficial_str,
+            "harmful": harmful_str,
+        })
+    return {"disease": disease, "genes_matched": len(results), "results": results}
+
+
 
 
 if __name__ == "__main__":
-    uniprot_id = "MTOR"
+    gene = "HRH1"
     disease = "pulmonary hypertension"
-    obj = CreedsClient(uniprot_id)
+    obj = CreedsClient(gene)
     disease_signatures = get_disease_signatures(disease)
     single_gene_perturbations = obj.get_single_gene_perturbations()
     print(disease_signatures)
     print(single_gene_perturbations)
-    print(obj.match_genes(disease_signatures, single_gene_perturbations))
+    print(type(obj.match_genes(disease_signatures, single_gene_perturbations)))

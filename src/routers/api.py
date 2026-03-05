@@ -31,10 +31,21 @@ async def get_properties_by_inchikey(inchikey: str):
 # ChEMBL database endpoints
 @router.get("/chembl/inchikey/{inchikey}/bioactivity")
 async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str] = None):
-    result = chembl_client.ChEMBLClient().get_by_inchikey(inchikey, standard_type)
+    chembl = chembl_client.ChEMBLClient()
+    result = chembl.get_by_inchikey(inchikey, standard_type)
     if not result:
         raise HTTPException(status_code=404, detail=f"No bioactivity data found for '{inchikey}'")
-    return result
+    gene_set = chembl.get_gene_set(inchikey)
+    return {"activities": result, "gene_set": sorted(gene_set)}
+
+# CREEDS match endpoint — matches each gene against disease signatures (pulmonary hypertension)
+@router.get("/match")
+async def get_gene_match(genes: str):
+    """genes = comma-separated gene symbols"""
+    gene_list = [g.strip() for g in genes.split(",") if g.strip()]
+    if not gene_list:
+        raise HTTPException(status_code=400, detail="No genes provided")
+    return creeds_client.match_gene_set(gene_list)
 
 @router.get("/chembl/inchikey/{inchkey}/bioactivity/{target_chembl_id}/target")
 async def get_target_data(target_chembl_id: str):
@@ -53,3 +64,4 @@ async def get_gene_analysis(accession_id: str, disease: str):
 @router.get("/geneExpressions")
 async def get_gene_expressions(page: int = 1, page_size: int = 50, search: Optional[str] = None):
     return geneCards_client.get_geo_data(page, page_size, search)
+

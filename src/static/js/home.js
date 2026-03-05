@@ -24,6 +24,7 @@ const DRUGBANK_FIELDS = {
 // Store current InChIKey for bioactivity fetching
 let currentInChIKey = null;
 let currentBioactivityType = 'IC50';
+let currentGeneSet = [];
 
 // Bioactivity table columns
 const BIOACTIVITY_COLUMNS = [
@@ -62,29 +63,51 @@ async function fetchBioactivity(inchiKey, standardType) {
             return;
         }
 
-        const data = await response.json();
+        const json = await response.json();
+        const activities = json.activities || [];
+        currentGeneSet = json.gene_set || [];
 
-        if (!data || data.length === 0) {
+        if (activities.length === 0) {
             emptyState.style.display = 'block';
             return;
         }
 
         // Populate table rows
-        data.forEach(row => {
+        activities.forEach(row => {
             const tr = document.createElement('tr');
             BIOACTIVITY_COLUMNS.forEach(col => {
                 const td = document.createElement('td');
                 const val = row[col];
-                // Use '--' for any null, undefined, or empty value
                 td.textContent = (val !== null && val !== undefined && val !== '') ? val : '--';
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
         });
 
+        // Show/update gene match link
+        updateGeneMatchLink();
+
     } catch (err) {
         console.error('Bioactivity fetch error:', err);
         emptyState.style.display = 'block';
+    }
+}
+
+// Show or hide the gene match navigation link
+function updateGeneMatchLink() {
+    let link = document.getElementById('gene-match-link');
+    if (currentGeneSet.length > 0) {
+        if (!link) {
+            link = document.createElement('a');
+            link.id = 'gene-match-link';
+            link.className = 'btn btn-outline-dark btn-sm mt-2';
+            document.getElementById('chembl').querySelector('.card-body').appendChild(link);
+        }
+        link.href = `/geneMatch?genes=${encodeURIComponent(currentGeneSet.join(','))}`;
+        link.textContent = `Match ${currentGeneSet.length} gene(s) against disease →`;
+        link.style.display = 'inline-block';
+    } else if (link) {
+        link.style.display = 'none';
     }
 }
 
@@ -107,6 +130,9 @@ function clearBioactivity() {
     document.getElementById('bioactivity-tbody').innerHTML = '';
     document.getElementById('bioactivity-empty').style.display = 'block';
     currentInChIKey = null;
+    currentGeneSet = [];
+    const link = document.getElementById('gene-match-link');
+    if (link) link.style.display = 'none';
 }
 
 // Clear all result fields
