@@ -31,9 +31,12 @@ const BIOACTIVITY_COLUMNS = [
     'target_name',
     'target_type',
     'target_organism',
+    'gene_symbol',
+    'uniprot_id',
     'standard_type',
     'standard_value',
-    'standard_units'
+    'standard_units',
+    'protein_target_classification'
 ];
 
 // Fetch and display bioactivity data
@@ -71,7 +74,9 @@ async function fetchBioactivity(inchiKey, standardType) {
             const tr = document.createElement('tr');
             BIOACTIVITY_COLUMNS.forEach(col => {
                 const td = document.createElement('td');
-                td.textContent = row[col] || '-';
+                const val = row[col];
+                // Use '--' for any null, undefined, or empty value
+                td.textContent = (val !== null && val !== undefined && val !== '') ? val : '--';
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);

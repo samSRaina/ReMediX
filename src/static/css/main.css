@@ -112,43 +112,58 @@ body {
 }
 
 /* ── Bioactivity Table ── */
-.table-responsive {
+.bioactivity-table-wrapper {
     border: 1px solid #dee2e6;
     border-radius: 6px;
 }
 
 #bioactivity-table {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
+    table-layout: fixed;
+    width: 100%;
+    margin-bottom: 0;
 }
 
 #bioactivity-table thead th {
     white-space: nowrap;
     font-weight: 600;
     letter-spacing: 0.3px;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: middle;
 }
 
 #bioactivity-table tbody td {
     vertical-align: middle;
+    padding: 8px 12px;
+    text-align: left;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 /* ── Scrollbar ── */
 .table-responsive::-webkit-scrollbar,
+.bioactivity-table-wrapper::-webkit-scrollbar,
 .scrollable-cell::-webkit-scrollbar {
     width: 6px;
 }
 
 .table-responsive::-webkit-scrollbar-track,
+.bioactivity-table-wrapper::-webkit-scrollbar-track,
 .scrollable-cell::-webkit-scrollbar-track {
     background: #f1f1f1;
 }
 
 .table-responsive::-webkit-scrollbar-thumb,
+.bioactivity-table-wrapper::-webkit-scrollbar-thumb,
 .scrollable-cell::-webkit-scrollbar-thumb {
     background: #aaa;
     border-radius: 4px;
 }
 
 .table-responsive::-webkit-scrollbar-thumb:hover,
+.bioactivity-table-wrapper::-webkit-scrollbar-thumb:hover,
 .scrollable-cell::-webkit-scrollbar-thumb:hover {
     background: #777;
 }
