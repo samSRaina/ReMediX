@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}Gene Match — Drug Repurpose App{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Gene–Disease Match</h1>
+        <a href="/" class="btn btn-outline-dark btn-sm">← Back to Home</a>
+    </div>
+
+    <div class="row mb-3 align-items-end">
+        <div class="col-md-3 d-flex align-items-end">
+            <button id="match-btn" class="btn btn-dark w-100">Run Match</button>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <small class="text-muted" id="gene-info">No gene set loaded.</small>
+    </div>
+
+    <!-- Results Table -->
+    <div class="table-responsive gene-table-wrapper">
+        <table class="table table-sm table-striped table-hover mb-0" id="match-table">
+            <thead class="table-dark sticky-top">
+                <tr>
+                    <th>Gene Symbol</th>
+                    <th>Beneficial</th>
+                    <th>Harmful</th>
+                </tr>
+            </thead>
+            <tbody id="match-tbody"></tbody>
+        </table>
+        <div class="text-center text-muted fst-italic py-4" id="match-empty" style="display: none;">
+            No match results yet. Enter a disease name and click Run Match.
+        </div>
+        <div class="text-center py-4" id="match-loading" style="display: none;">
+            <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            Matching genes against disease signatures...
+        </div>
+    </div>
+
+    <div id="error-message" class="text-danger text-center mt-3"></div>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script src="{{ url_for('static', path='js/gene_match.js') }}"></script>
+{% endblock %}
+

@@ -153,6 +153,20 @@ class ChEMBLClient:
 
         return act_data
 
+    def get_gene_set(self, inchi_key: str) -> set:
+        """
+        Fetch bioactivity for IC50, AC50, and Ki in one go,
+        then collect all valid gene symbols into a single set.
+        """
+        gene_set = set()
+        for standard_type in ["IC50", "AC50", "Ki"]:
+            activities = self.get_by_inchikey(inchi_key, standard_type)
+            for act in activities:
+                gene = act.get("gene_symbol")
+                if gene and gene != "--":
+                    gene_set.add(gene)
+        return gene_set
+
     def get_target_data(self, target_chembl_id: str) -> dict:
         """
         Fetch detailed target information using target_chembl_id
@@ -177,4 +191,4 @@ class ChEMBLClient:
 if __name__ == "__main__":
     inchi_key = "ZKLPARSLTMPFCP-UHFFFAOYSA-N"
     obj = ChEMBLClient()
-    print(obj.get_by_inchikey(inchi_key, "IC50"))
+    print(type(obj.get_by_inchikey(inchi_key, "IC50")))

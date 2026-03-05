@@ -13,3 +13,7 @@ async def home(request: Request):
 async def gene_expressions(request: Request):
     return templates.TemplateResponse(request, "gene_expressions.html")
 
+@router.get("/geneMatch", include_in_schema=False, name="gene_match")
+async def gene_match(request: Request):
+    return templates.TemplateResponse(request, "gene_match.html")
+
