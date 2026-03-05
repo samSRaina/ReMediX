@@ -14,8 +14,36 @@ def _clean_nan(records: list[dict]) -> list[dict]:
     return records
 
 @lru_cache(maxsize=1)
-def get_geo_data() -> list[dict]:
+def _load_geo_data() -> list[dict]:
     """Read Excel once, cache in memory for subsequent calls."""
     df = pd.read_excel(GEO_DATA, sheet_name="REFER THIS ")
     return _clean_nan(df.to_dict(orient="records"))
+
+
+def get_geo_data(page: int = 1, page_size: int = 50, search: str | None = None) -> dict:
+    """Return paginated and optionally filtered GEO data."""
+    all_data = _load_geo_data()
+
+    if search:
+        search_lower = search.lower()
+        all_data = [
+            row for row in all_data
+            if row.get("Gene.symbol") and search_lower in str(row["Gene.symbol"]).lower()
+        ]
+
+    total = len(all_data)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return {
+        "data": all_data[start:end],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+    }
+
 

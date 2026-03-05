@@ -74,6 +74,29 @@ class ChEMBLClient:
             if tid not in self._target_cache:
                 self._target_cache[tid] = {}
 
+    def _extract_protein_classification(self, target_data: dict) -> str:
+        """Return the exact protein_classification value from ChEMBL. '--' if missing."""
+        value = target_data.get('protein_classification')
+        return value if value else '--'
+
+    def _extract_gene_symbol(self, target_data: dict) -> str:
+        """Extract the gene symbol from target_components."""
+        for comp in target_data.get('target_components', []):
+            # Try target_component_synonyms with syn_type == GENE_SYMBOL
+            for syn in comp.get('target_component_synonyms', []):
+                if syn.get('syn_type') == 'GENE_SYMBOL':
+                    value = syn.get('component_synonym')
+                    return value if value else '--'
+        return '--'
+
+    def _extract_uniprot_id(self, target_data: dict) -> str:
+        """Extract the primary UniProt accession from target_components."""
+        for comp in target_data.get('target_components', []):
+            accession = comp.get('accession')
+            if accession:
+                return accession
+        return '--'
+
     def get_by_inchikey(self, inchi_key: str, standard_type: str = None, include_target_details: bool = False, only_with_target_type: bool = False) -> list:
         compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key))
         if not compound:
@@ -86,33 +109,40 @@ class ChEMBLClient:
         if standard_type:
             activities = [act for act in activities if act.get('standard_type') == standard_type]
 
-        # BATCH FETCH: Only fetch targets if we need target_type filtering or details
-        if only_with_target_type or include_target_details:
-            unique_target_ids = list(set(act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')))
-            self._batch_fetch_targets(unique_target_ids)
+        # Always batch-fetch targets so we can enrich with gene symbol, uniprot, classification
+        unique_target_ids = list(set(
+            act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')
+        ))
+        self._batch_fetch_targets(unique_target_ids)
 
         act_data = []
         for act in activities:
             target_chembl_id = act.get('target_chembl_id')
 
-            # Fetch target_type only if needed
-            target_type = None
-            if (only_with_target_type or include_target_details) and target_chembl_id:
-                target_info = self._get_target_cached(target_chembl_id)
-                target_type = target_info.get('target_type')
+            # Enrich from cached target data
+            target_info = self._get_target_cached(target_chembl_id) if target_chembl_id else {}
+            target_type = target_info.get('target_type') or None
 
             # Skip activities without target_type if flag is set
             if only_with_target_type and not target_type:
                 continue
 
+            # Extract enriched fields
+            gene_symbol = self._extract_gene_symbol(target_info) if target_info else '--'
+            uniprot_id = self._extract_uniprot_id(target_info) if target_info else '--'
+            protein_classification = self._extract_protein_classification(target_info) if target_info else '--'
+
             activity_entry = {
-                'target_chembl_id': target_chembl_id,
-                'target_name': act.get('target_pref_name'),
-                'target_type': target_type,
-                'target_organism': act.get('target_organism'),
-                'standard_type': act.get('standard_type'),
-                'standard_value': act.get('standard_value'),
-                'standard_units': act.get('standard_units')
+                'target_chembl_id': target_chembl_id or '--',
+                'target_name': act.get('target_pref_name') or '--',
+                'target_type': target_type or '--',
+                'target_organism': act.get('target_organism') or '--',
+                'gene_symbol': gene_symbol,
+                'uniprot_id': uniprot_id,
+                'standard_type': act.get('standard_type') or '--',
+                'standard_value': act.get('standard_value') or '--',
+                'standard_units': act.get('standard_units') or '--',
+                'protein_target_classification': protein_classification,
             }
 
             # Optionally include enriched target details

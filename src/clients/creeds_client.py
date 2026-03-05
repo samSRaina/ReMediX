@@ -50,7 +50,7 @@ class CreedsClient:
 
 
 if __name__ == "__main__":
-    uniprot_id = "HBD"
+    uniprot_id = "MTOR"
     disease = "pulmonary hypertension"
     obj = CreedsClient(uniprot_id)
     disease_signatures = get_disease_signatures(disease)
