@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+
+{% block title %}Data Set Viewer — Drug Repurpose App{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">Data Set Viewer</h1>
+        <a href="/" class="btn btn-outline-dark btn-sm">← Back to Home</a>
+    </div>
+
+    <!-- Error Message (if any) -->
+    <div id="error-container"></div>
+
+    <!-- Tabs Container -->
+    <div class="excel-tabs-container">
+        <div class="excel-tabs" id="excel-tabs-nav"></div>
+    </div>
+
+    <!-- Tab Contents -->
+    <div id="excel-tabs-content"></div>
+
+    <!-- Loading State -->
+    <div id="loading-container" class="loading-spinner">
+        <div class="spinner-border spinner-border-sm" role="status"></div>
+        <p class="mt-2">Loading data...</p>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', path='js/excel_viewer.js') }}"></script>
+{% endblock %}
+
+
+
