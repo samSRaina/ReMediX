@@ -17,3 +17,6 @@ async def gene_expressions(request: Request):
 async def gene_match(request: Request):
     return templates.TemplateResponse(request, "gene_match.html")
 
+@router.get("/excelViewer", include_in_schema=False, name="excel_viewer")
+async def excel_viewer(request: Request):
+    return templates.TemplateResponse(request, "excel_viewer.html")

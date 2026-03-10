@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block content %}
-    <h1 class="text-center mb-4">SMILES Lookup</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0">SMILES Lookup</h1>
+        <a href="/excelViewer" class="btn btn-outline-dark btn-sm">📊 Data Set Viewer</a>
+    </div>
     <form id="home-form" class="mb-4">
         <div class="mb-3">
             <label for="compound-input" class="form-label">Enter Compound Name:</label>

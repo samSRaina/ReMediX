@@ -24,6 +24,8 @@ class ChEMBLClient:
         self._target = None
         # Cache to store target data (avoids repeated API calls)
         self._target_cache = {}
+        # Cache to store activities per InChIKey (avoids repeated molecule+activity lookups)
+        self._activities_cache = {}
 
     @property
     def molecule(self):
@@ -97,74 +99,92 @@ class ChEMBLClient:
                 return accession
         return '--'
 
-    def get_by_inchikey(self, inchi_key: str, standard_type: str = None, include_target_details: bool = False, only_with_target_type: bool = False) -> list:
+    def _fetch_all_activities(self, inchi_key: str) -> list:
+        """
+        Fetch the molecule + ALL its activities in a single round-trip.
+        Results are cached on the instance so repeated calls are free.
+        """
+        if inchi_key in self._activities_cache:
+            return self._activities_cache[inchi_key]
+
         compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key))
         if not compound:
+            self._activities_cache[inchi_key] = []
             return []
 
         chembl_id = compound[0].get('molecule_chembl_id')
         activities = list(self.activity.filter(molecule_chembl_id=chembl_id))
 
-        # Filter by standard_type if provided
-        if standard_type:
-            activities = [act for act in activities if act.get('standard_type') == standard_type]
-
-        # Always batch-fetch targets so we can enrich with gene symbol, uniprot, classification
+        # Batch-fetch ALL targets referenced by these activities in ONE call
         unique_target_ids = list(set(
             act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')
         ))
         self._batch_fetch_targets(unique_target_ids)
 
+        self._activities_cache[inchi_key] = activities
+        return activities
+
+    def _enrich_activity(self, act: dict, include_target_details: bool = False) -> dict:
+        """Build an enriched activity dict from a raw ChEMBL activity record."""
+        target_chembl_id = act.get('target_chembl_id')
+        target_info = self._get_target_cached(target_chembl_id) if target_chembl_id else {}
+        target_type = target_info.get('target_type') or None
+
+        gene_symbol = self._extract_gene_symbol(target_info) if target_info else '--'
+        uniprot_id = self._extract_uniprot_id(target_info) if target_info else '--'
+        protein_classification = self._extract_protein_classification(target_info) if target_info else '--'
+
+        activity_entry = {
+            'target_chembl_id': target_chembl_id or '--',
+            'target_name': act.get('target_pref_name') or '--',
+            'target_type': target_type or '--',
+            'target_organism': act.get('target_organism') or '--',
+            'gene_symbol': gene_symbol,
+            'uniprot_id': uniprot_id,
+            'standard_type': act.get('standard_type') or '--',
+            'standard_value': act.get('standard_value') or '--',
+            'standard_units': act.get('standard_units') or '--',
+            'protein_target_classification': protein_classification,
+        }
+
+        if include_target_details and target_chembl_id:
+            activity_entry['target_details'] = self.get_target_data(target_chembl_id)
+
+        return activity_entry
+
+    def get_by_inchikey(self, inchi_key: str, standard_type: str = None, include_target_details: bool = False, only_with_target_type: bool = False) -> list:
+        activities = self._fetch_all_activities(inchi_key)
+        if not activities:
+            return []
+
+        # Filter by standard_type if provided
+        if standard_type:
+            activities = [act for act in activities if act.get('standard_type') == standard_type]
+
         act_data = []
         for act in activities:
-            target_chembl_id = act.get('target_chembl_id')
-
-            # Enrich from cached target data
-            target_info = self._get_target_cached(target_chembl_id) if target_chembl_id else {}
-            target_type = target_info.get('target_type') or None
-
-            # Skip activities without target_type if flag is set
-            if only_with_target_type and not target_type:
+            entry = self._enrich_activity(act, include_target_details)
+            if only_with_target_type and entry['target_type'] == '--':
                 continue
-
-            # Extract enriched fields
-            gene_symbol = self._extract_gene_symbol(target_info) if target_info else '--'
-            uniprot_id = self._extract_uniprot_id(target_info) if target_info else '--'
-            protein_classification = self._extract_protein_classification(target_info) if target_info else '--'
-
-            activity_entry = {
-                'target_chembl_id': target_chembl_id or '--',
-                'target_name': act.get('target_pref_name') or '--',
-                'target_type': target_type or '--',
-                'target_organism': act.get('target_organism') or '--',
-                'gene_symbol': gene_symbol,
-                'uniprot_id': uniprot_id,
-                'standard_type': act.get('standard_type') or '--',
-                'standard_value': act.get('standard_value') or '--',
-                'standard_units': act.get('standard_units') or '--',
-                'protein_target_classification': protein_classification,
-            }
-
-            # Optionally include enriched target details
-            if include_target_details and target_chembl_id:
-                activity_entry['target_details'] = self.get_target_data(target_chembl_id)
-
-            act_data.append(activity_entry)
+            act_data.append(entry)
 
         return act_data
 
     def get_gene_set(self, inchi_key: str) -> set:
         """
-        Fetch bioactivity for IC50, AC50, and Ki in one go,
-        then collect all valid gene symbols into a single set.
+        Collect all valid gene symbols for IC50, AC50, and Ki.
+        Uses the same cached activities — no extra API calls.
         """
+        activities = self._fetch_all_activities(inchi_key)
         gene_set = set()
-        for standard_type in ["IC50", "AC50", "Ki"]:
-            activities = self.get_by_inchikey(inchi_key, standard_type)
-            for act in activities:
-                gene = act.get("gene_symbol")
-                if gene and gene != "--":
-                    gene_set.add(gene)
+        for act in activities:
+            if act.get('standard_type') in ("IC50", "AC50", "Ki"):
+                target_chembl_id = act.get('target_chembl_id')
+                if target_chembl_id:
+                    target_info = self._get_target_cached(target_chembl_id)
+                    gene = self._extract_gene_symbol(target_info) if target_info else '--'
+                    if gene and gene != '--':
+                        gene_set.add(gene)
         return gene_set
 
     def get_target_data(self, target_chembl_id: str) -> dict:

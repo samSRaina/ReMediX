@@ -237,3 +237,196 @@ body {
     color: #fff;
 }
 
+/* ── Excel Viewer Tabs ── */
+.excel-tabs-container {
+    margin-bottom: 20px;
+}
+
+.excel-tabs {
+    display: flex;
+    border-bottom: 2px solid #dee2e6;
+    gap: 0;
+    flex-wrap: wrap;
+}
+
+.excel-tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-bottom: none;
+    color: #555;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-radius: 6px 6px 0 0;
+    margin-right: 4px;
+    white-space: nowrap;
+}
+
+.excel-tab:hover {
+    background-color: #e9ecef;
+    color: #2c3e50;
+}
+
+.excel-tab.active {
+    background-color: #2c3e50;
+    color: #fff;
+    border-color: #2c3e50;
+}
+
+.excel-tab-content {
+    display: none;
+}
+
+.excel-tab-content.active {
+    display: block;
+}
+
+/* ── Excel Data Table ── */
+.excel-table-wrapper {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    overflow: hidden;
+    max-height: 75vh;
+    overflow-y: auto;
+}
+
+.excel-table {
+    font-size: 0.85rem;
+    table-layout: auto;
+    width: 100%;
+    margin-bottom: 0;
+    border-collapse: collapse;
+}
+
+.excel-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.excel-table thead th {
+    background-color: #2c3e50;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 12px 14px;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+    border-right: 1px solid #34495e;
+}
+
+.excel-table thead th:last-child {
+    border-right: none;
+}
+
+.excel-table tbody tr:nth-child(odd) {
+    background-color: #fff;
+}
+
+.excel-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.excel-table tbody tr:hover {
+    background-color: #e8f0fe;
+}
+
+.excel-table tbody td {
+    padding: 10px 14px;
+    vertical-align: middle;
+    border-right: 1px solid #e9ecef;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.excel-table tbody td:last-child {
+    border-right: none;
+}
+
+/* ── Loading & Error States ── */
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+}
+
+.spinner-border-sm {
+    color: #2c3e50;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 20px 0;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* ── Info Bar ── */
+.excel-info-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.excel-info-bar small {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* ── Scrollbar for Excel Tables ── */
+.excel-table-wrapper::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.excel-table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.excel-table-wrapper::-webkit-scrollbar-thumb {
+    background: #aaa;
+    border-radius: 4px;
+}
+
+.excel-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .excel-tabs {
+        gap: 2px;
+    }
+
+    .excel-tab {
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        margin-right: 2px;
+    }
+
+    .excel-table {
+        font-size: 0.75rem;
+    }
+
+    .excel-table thead th,
+    .excel-table tbody td {
+        padding: 8px 10px;
+    }
+
+    .excel-table-wrapper {
+        max-height: 60vh;
+    }
+}

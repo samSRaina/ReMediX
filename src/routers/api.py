@@ -1,12 +1,10 @@
-
 from fastapi import APIRouter, HTTPException
 from typing import Optional
 from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client, geneCards_client
-router= APIRouter(prefix="/api")
+import openpyxl
+from pathlib import Path
 
-#@router.get("/smile/{smile_id}")
-#async def get_smile_api(smile_id: str):
-#    return func.get_smile(smile_id)
+router= APIRouter(prefix="/api")
 
 # PubChem database endpoints
 @router.get("/compound/name/{name}/properties")
@@ -65,3 +63,83 @@ async def get_gene_analysis(accession_id: str, disease: str):
 async def get_gene_expressions(page: int = 1, page_size: int = 50, search: Optional[str] = None):
     return geneCards_client.get_geo_data(page, page_size, search)
 
+
+@router.get("/excelData/meta")
+async def get_excel_meta():
+    """Return sheet names, column headers and row counts (lightweight)."""
+    sheets = _load_excel_sheets()
+    meta = {}
+    for name, rows in sheets.items():
+        headers = rows[0] if rows else []
+        meta[name] = {
+            "headers": headers,
+            "totalRows": max(0, len(rows) - 1),   # exclude header
+        }
+    return {"sheetNames": list(sheets.keys()), "meta": meta}
+
+
+@router.get("/excelData/sheet")
+async def get_excel_sheet(name: str, page: int = 1, page_size: int = 100):
+    """Return a paginated slice of one sheet's data rows."""
+    sheets = _load_excel_sheets()
+    if name not in sheets:
+        raise HTTPException(status_code=404, detail=f"Sheet '{name}' not found")
+
+    all_rows = sheets[name]
+    headers = all_rows[0] if all_rows else []
+    data_rows = all_rows[1:]                      # everything after header
+
+    total = len(data_rows)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return {
+        "headers": headers,
+        "data": data_rows[start:end],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": total_pages,
+    }
+
+
+# ── helpers ────────────────────────────────────────────────────
+from functools import lru_cache
+import math
+
+_EXCLUDED_SHEETS = ["Reactome"]
+
+@lru_cache(maxsize=1)
+def _load_excel_sheets() -> dict[str, list[list]]:
+    """Read all non-excluded sheets once and cache them."""
+    from datetime import datetime, date
+
+    def _serialise(v):
+        if v is None:
+            return None
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return None
+        if isinstance(v, (datetime, date)):
+            return str(v)
+        return v
+
+    excel_path = Path(__file__).resolve().parent.parent / "data" / "data_set.xlsx"
+    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    result: dict[str, list[list]] = {}
+
+    for sheet_name in wb.sheetnames:
+        if sheet_name in _EXCLUDED_SHEETS:
+            continue
+        ws = wb[sheet_name]
+        rows = []
+        for row in ws.iter_rows(values_only=True):
+            cleaned = [_serialise(c) for c in row]
+            # trim trailing None cells (Top Reactome has 453 cols, mostly empty)
+            while cleaned and cleaned[-1] is None:
+                cleaned.pop()
+            rows.append(cleaned)
+        result[sheet_name] = rows
+
+    return result
