@@ -405,7 +405,65 @@ body {
     background: #777;
 }
 
-/* ── Responsive ── */
+/* ── PPI Interaction Placeholders ── */
+.ppi-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: sticky;
+    top: 1rem;
+}
+
+.ppi-link {
+    color: #2c3e50;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.ppi-link:hover {
+    color: #1a252f;
+    text-decoration: underline;
+}
+
+.ppi-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.ppi-image-card {
+    margin: 0;
+}
+
+.ppi-image-placeholder {
+    width: 100%;
+    height: 180px;
+    object-fit: contain;
+    border: 2px dashed #ced4da;
+    border-radius: 10px;
+    background: #f8f9fa;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ppi-image-card:hover .ppi-image-placeholder {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.ppi-image-label {
+    margin-top: 8px;
+    margin-bottom: 0;
+    color: #495057;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+@media (max-width: 767.98px) {
+    .ppi-links {
+        position: static;
+    }
+}
+
 @media (max-width: 768px) {
     .excel-tabs {
         gap: 2px;
