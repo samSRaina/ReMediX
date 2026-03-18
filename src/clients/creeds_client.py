@@ -1,16 +1,57 @@
 from pathlib import Path
 import json
+from functools import lru_cache
 
-DISEASE_SIG = Path(__file__).parent.parent/'data'/'CREEDS'/'disease_signatures-v1.0.json'
-SINGLE_GENE_PERTURBATION = Path(__file__).parent.parent/'data'/'CREEDS'/'single_gene_perturbations-v1.0.json'
+DISEASE_SIG = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signatures-v1.0.json'
+SINGLE_GENE_PERTURBATION = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'single_gene_perturbations-v1.0.json'
+DISEASE_SIGNATURE_TABLE = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signature_table.json'
+
+
+@lru_cache(maxsize=1)
+def _load_disease_signature_dataset() -> list:
+    with open(DISEASE_SIG, 'r') as file:
+        return json.load(file)
+
+
+def _get_disease_signature_entry(disease: str) -> dict:
+    disease_key = (disease or '').strip().lower()
+    for entry in _load_disease_signature_dataset():
+        if str(entry.get('disease_name', '')).strip().lower() == disease_key:
+            return entry
+    raise ValueError(f"Disease '{disease}' not found in CREEDS signatures")
 
 
 def get_disease_signatures(disease) -> list:
-    with open(DISEASE_SIG, 'r') as file:
-        disease_signatures = json.load(file)
+    entry = _get_disease_signature_entry(disease)
+    return entry.get('up_genes', []) + entry.get('down_genes', [])
 
-    response_dataset = [entry for entry in disease_signatures if entry.get('disease_name') == disease]
-    return response_dataset[0].get('up_genes') + response_dataset[0].get('down_genes', [])
+
+def build_disease_signature_table(disease: str) -> dict:
+    """Build a flat table-friendly representation for one disease signature."""
+    entry = _get_disease_signature_entry(disease)
+
+    rows = []
+    for gene, score in entry.get('up_genes', []):
+        rows.append([gene, score, 'up'])
+    for gene, score in entry.get('down_genes', []):
+        rows.append([gene, score, 'down'])
+
+    return {
+        'disease': disease,
+        'headers': ['Gene Symbol', 'Score', 'Direction'],
+        'rows': rows,
+    }
+
+
+def export_disease_signature_table(disease: str, output_path: Path = DISEASE_SIGNATURE_TABLE) -> dict:
+    """Write the normalized disease signature table to JSON and return the payload."""
+    payload = build_disease_signature_table(disease)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w') as file:
+        json.dump(payload, file, indent=2)
+
+    payload['export_file'] = str(output_path)
+    return payload
 
 
 class CreedsClient:

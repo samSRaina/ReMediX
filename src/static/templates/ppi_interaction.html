@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+
+{% block title %}PPI Interaction{% endblock %}
+
+{% block content %}
+<div class="ppi-page">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">PPI Interaction</h1>
+        <a href="{{ url_for('home') }}" class="btn btn-outline-dark btn-sm">Back to Home</a>
+    </div>
+    <div class="row g-4">
+        <aside class="col-12 col-md-4 col-lg-3">
+            <nav class="ppi-links" aria-label="PPI quick links">
+                <h2 class="h6 text-uppercase text-muted mb-2">Quick Links</h2>
+                <a class="ppi-link" href="#">Link Placeholder 1</a>
+                <a class="ppi-link" href="#">Link Placeholder 2</a>
+                <a class="ppi-link" href="#">Link Placeholder 3</a>
+                <a class="ppi-link" href="#">Link Placeholder 4</a>
+            </nav>
+        </aside>
+
+        <section class="col-12 col-md-8 col-lg-9" aria-label="PPI image placeholders">
+            <div class="ppi-image-grid">
+                <figure class="ppi-image-card">
+                    <img class="ppi-image-placeholder" src="{{ url_for('data', path='PPInteraction/STRING.png') }}" alt="STRING interaction network" loading="lazy">
+                    <figcaption class="ppi-image-label">STRING</figcaption>
+                </figure>
+                <figure class="ppi-image-card">
+                    <img class="ppi-image-placeholder" src="{{ url_for('data', path='PPInteraction/5_KEGG Enrichment.png') }}" alt="KEGG enrichment analysis" loading="lazy">
+                    <figcaption class="ppi-image-label">5 - KEGG Enrichment</figcaption>
+                </figure>
+                <figure class="ppi-image-card">
+                    <img class="ppi-image-placeholder" src="{{ url_for('data', path='PPInteraction/7_Gene Ontology_ Biological Process.png') }}" alt="Gene ontology biological process" loading="lazy">
+                    <figcaption class="ppi-image-label">7 - Gene Ontology Biological Process</figcaption>
+                </figure>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+    <script src="{{ url_for('static', path='js/ppi_interaction.js') }}"></script>
+{% endblock %}

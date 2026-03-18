@@ -20,3 +20,7 @@ async def gene_match(request: Request):
 @router.get("/excelViewer", include_in_schema=False, name="excel_viewer")
 async def excel_viewer(request: Request):
     return templates.TemplateResponse(request, "excel_viewer.html")
+
+@router.get("/ppiInteraction", include_in_schema= False, name="ppi_interaction")
+async def ppi_interaction(request: Request):
+    return templates.TemplateResponse(request, "ppi_interaction.html")

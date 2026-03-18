@@ -105,6 +105,33 @@ async def get_excel_sheet(name: str, page: int = 1, page_size: int = 100):
     }
 
 
+@router.get("/diseaseSignature/table")
+async def get_disease_signature_table(disease: str = "pulmonary hypertension", page: int = 1, page_size: int = 100):
+    """Export one disease signature to JSON and return a paginated table payload."""
+    try:
+        payload = creeds_client.export_disease_signature_table(disease)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    rows = payload.get("rows", [])
+    headers = payload.get("headers", [])
+    total = len(rows)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    return {
+        "disease": payload.get("disease", disease),
+        "headers": headers,
+        "data": rows[start:end],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": total_pages,
+    }
+
+
 # ── helpers ────────────────────────────────────────────────────
 from functools import lru_cache
 import math
