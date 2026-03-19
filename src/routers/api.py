@@ -56,7 +56,7 @@ async def get_target_data(target_chembl_id: str):
 async def get_gene_analysis(accession_id: str, disease: str):
     disease_signatures = creeds_client.get_disease_signatures(disease)
     accession_object = creeds_client.CreedsClient(accession_id)
-    single_gene_perturbations = accession_object.get_single_gene_perturbations()
+    single_gene_perturbations = accession_object.get_single_drug_perturbations()
     return accession_object.match_genes(disease_signatures, single_gene_perturbations )
 
 @router.get("/geneExpressions")

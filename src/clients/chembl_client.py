@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +19,14 @@ def _get_chembl_client():
     return _new_client
 
 class ChEMBLClient:
+    # Class-level caches for persistence across requests
+    _target_cache = {}
+    _activities_cache = {}
+
     def __init__(self):
         self._molecule = None
         self._activity = None
         self._target = None
-        # Cache to store target data (avoids repeated API calls)
-        self._target_cache = {}
-        # Cache to store activities per InChIKey (avoids repeated molecule+activity lookups)
-        self._activities_cache = {}
 
     @property
     def molecule(self):
@@ -56,7 +57,6 @@ class ChEMBLClient:
     def _batch_fetch_targets(self, target_ids: list) -> None:
         """
         Batch fetch multiple targets at once and store in cache.
-        Much faster than fetching one-by-one.
         """
         # Filter out already cached targets
         uncached_ids = [tid for tid in target_ids if tid and tid not in self._target_cache]
@@ -107,19 +107,39 @@ class ChEMBLClient:
         if inchi_key in self._activities_cache:
             return self._activities_cache[inchi_key]
 
-        compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key))
+        try:
+             # Optimization: Limit fields if possible, but the client might not support it easily
+            compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key))
+        except Exception as e:
+            logger.error(f"Error fetching molecule for {inchi_key}: {e}")
+            return []
+
         if not compound:
             self._activities_cache[inchi_key] = []
             return []
 
         chembl_id = compound[0].get('molecule_chembl_id')
-        activities = list(self.activity.filter(molecule_chembl_id=chembl_id))
+        
+        try:
+             # Only fetching necessary fields could be faster, but we need most of them
+            activities = list(self.activity.filter(molecule_chembl_id=chembl_id))
+        except Exception as e:
+             logger.error(f"Error fetching activities for {chembl_id}: {e}")
+             return []
 
         # Batch-fetch ALL targets referenced by these activities in ONE call
         unique_target_ids = list(set(
             act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')
         ))
-        self._batch_fetch_targets(unique_target_ids)
+        
+        # Split into chunks of 50 to avoid URL length issues or timeouts with massive lists
+        chunk_size = 50
+        chunks = [unique_target_ids[i:i + chunk_size] for i in range(0, len(unique_target_ids), chunk_size)]
+        
+        # Fetch chunks in PARALLEL to speed up loading
+        if chunks:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                executor.map(self._batch_fetch_targets, chunks)
 
         self._activities_cache[inchi_key] = activities
         return activities
@@ -189,9 +209,10 @@ class ChEMBLClient:
 
     def get_target_data(self, target_chembl_id: str) -> dict:
         """
-        Fetch detailed target information using target_chembl_id
+        Fetch detailed target information using target_chembl_id.
+        Uses cached data if available.
         """
-        target_data = self.target.get(target_chembl_id)
+        target_data = self._get_target_cached(target_chembl_id)
         if not target_data:
             return {}
 
