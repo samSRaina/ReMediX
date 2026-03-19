@@ -3,13 +3,19 @@ import json
 from functools import lru_cache
 
 DISEASE_SIG = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signatures-v1.0.json'
-SINGLE_GENE_PERTURBATION = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'single_gene_perturbations-v1.0.json'
+SINGLE_DRUG_PERTURBATION = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'single_drug_perturbations-v1.0.json'
 DISEASE_SIGNATURE_TABLE = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signature_table.json'
 
 
 @lru_cache(maxsize=1)
 def _load_disease_signature_dataset() -> list:
     with open(DISEASE_SIG, 'r') as file:
+        return json.load(file)
+
+
+@lru_cache(maxsize=1)
+def _load_drug_perturbation_dataset() -> list:
+    with open(SINGLE_DRUG_PERTURBATION, 'r') as file:
         return json.load(file)
 
 
@@ -58,34 +64,50 @@ class CreedsClient:
     def __init__(self, uniprot_accession_gene: str) :
         self.uniprot_gene = uniprot_accession_gene
 
-    def get_single_gene_perturbations(self) -> list:
-        with open(SINGLE_GENE_PERTURBATION, 'r') as file:
-            single_gene_perturbations = json.load(file)
+    def get_single_drug_perturbations(self) -> list:
+        single_gene_perturbations = _load_drug_perturbation_dataset()
 
         response_dataset = []
-        for entry in single_gene_perturbations:
-            for subentry in entry.get("up_genes"):
-                if subentry[0] == self.uniprot_gene:
-                    response_dataset.append(subentry)
+        target_gene_lower = str(self.uniprot_gene).strip().lower()
 
-            for subentry in entry.get('down_genes'):
-                if subentry[0] == self.uniprot_gene:
-                    response_dataset.append(subentry)
+        for entry in single_gene_perturbations:
+            up_genes = entry.get("up_genes", [])
+            down_genes = entry.get("down_genes", [])
+
+            # Check if target gene is present in this experiment (in up or down lists)
+            target_matches_up = any(str(g[0]).strip().lower() == target_gene_lower for g in up_genes)
+            target_matches_down = any(str(g[0]).strip().lower() == target_gene_lower for g in down_genes)
+
+            # If target gene is perturbed in this experiment, include the ENTIRE signature
+            if target_matches_up or target_matches_down:
+                response_dataset.extend(up_genes)
+                response_dataset.extend(down_genes)
 
         return response_dataset
 
-    def match_genes(self, all_genes: list, single_perturbations):
+    def match_genes(self, disease_genes: list, drug_perturbations: list):
         beneficial = 0
         harmful = 0
-        for entry in all_genes:
-            if entry[0] == self.uniprot_gene:
-                score=entry[1]
-                for sgp in single_perturbations:
-                    if (sgp[1]<0 and score<0) or (sgp[1]>0 and score) > 0:
-                        harmful +=1
-                    else: beneficial +=1
+        
+        # Create a lookup for disease genes for faster matching
+        # Key: gene (lowercase), Value: score
+        disease_map = {str(g[0]).strip().lower(): g[1] for g in disease_genes}
 
-        return f"beneficial: {beneficial}",f"harmful: {harmful}"
+        for drug_gene_entry in drug_perturbations:
+            gene_sym = str(drug_gene_entry[0]).strip().lower()
+            drug_score = drug_gene_entry[1]
+            
+            if gene_sym in disease_map:
+                disease_score = disease_map[gene_sym]
+                
+                # Opposite signs -> Beneficial (drug reverses disease signature)
+                if (drug_score < 0 < disease_score) or (drug_score > 0 > disease_score):
+                    beneficial += 1
+                # Same signs -> Harmful (drug exacerbates disease signature)
+                elif (drug_score < 0 and disease_score < 0) or (drug_score > 0 and disease_score > 0):
+                    harmful += 1
+
+        return f"beneficial: {beneficial}", f"harmful: {harmful}"
 
 
 def match_gene_set(gene_list: list[str]) -> dict:
@@ -99,7 +121,7 @@ def match_gene_set(gene_list: list[str]) -> dict:
     results = []
     for gene in gene_list:
         client = CreedsClient(gene)
-        single_perturbations = client.get_single_gene_perturbations()
+        single_perturbations = client.get_single_drug_perturbations()
         beneficial_str, harmful_str = client.match_genes(disease_signatures, single_perturbations)
         results.append({
             "gene": gene,
@@ -116,7 +138,7 @@ if __name__ == "__main__":
     disease = "pulmonary hypertension"
     obj = CreedsClient(gene)
     disease_signatures = get_disease_signatures(disease)
-    single_gene_perturbations = obj.get_single_gene_perturbations()
+    single_drug_perturbations = obj.get_single_drug_perturbations()
     print(disease_signatures)
-    print(single_gene_perturbations)
-    print(type(obj.match_genes(disease_signatures, single_gene_perturbations)))
+    print(single_drug_perturbations)
+    print(type(obj.match_genes(disease_signatures, single_drug_perturbations)))
