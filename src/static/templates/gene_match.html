@@ -19,13 +19,23 @@
     </div>
 
     <div class="row mb-3 align-items-end">
-        <div class="col-md-3 d-flex align-items-end">
-            <button id="match-btn" class="btn btn-dark w-100">Run Match</button>
+        <div class="col-md-4 d-flex align-items-end gap-2">
+            <button id="match-btn" class="btn btn-dark flex-grow-1">Run Match</button>
+            <button id="score-btn" class="btn btn-outline-dark flex-grow-1" disabled>Get Score</button>
         </div>
     </div>
 
     <div class="mb-3">
         <small class="text-muted" id="gene-info">No gene set loaded.</small>
+    </div>
+
+    <!-- Score Result Container -->
+    <div id="score-container" class="alert alert-info mb-4" style="display: none;">
+        <h5 class="alert-heading">Re-purposing Score</h5>
+        <div class="d-flex justify-content-between">
+             <span>Final Score: <strong id="score-value" class="fs-4"></strong></span>
+             <small class="text-muted align-self-center">Based on <span id="score-genes-count">0</span> beneficial gene matches</small>
+        </div>
     </div>
 
     <div class="row g-4">
