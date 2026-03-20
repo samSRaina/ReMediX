@@ -14,6 +14,10 @@ const loadingState = document.getElementById('match-loading');
 const geneInfo = document.getElementById('gene-info');
 const errorMsg = document.getElementById('error-message');
 const matchBtn = document.getElementById('match-btn');
+const scoreBtn = document.getElementById('score-btn');
+const scoreContainer = document.getElementById('score-container');
+const scoreValue = document.getElementById('score-value');
+const scoreGenesCount = document.getElementById('score-genes-count');
 
 // ── Fixed sheet DOM refs ──
 const sheetNameLabel = document.getElementById('sheet-name-label');
@@ -125,6 +129,8 @@ async function runMatch() {
     tbody.innerHTML = '';
     emptyState.style.display = 'none';
     loadingState.style.display = 'block';
+    scoreBtn.disabled = true; // disable score button during match
+    if (scoreContainer) scoreContainer.style.display = 'none'; // hide previous score
 
     try {
         const url = `/api/match?genes=${encodeURIComponent(geneList.join(','))}`;
@@ -143,6 +149,9 @@ async function runMatch() {
             emptyState.style.display = 'block';
             return;
         }
+        
+        // Enable score button if we have results
+        scoreBtn.disabled = false;
 
         geneInfo.textContent = `Gene set: ${geneList.length} gene(s) — Disease: ${json.disease}`;
 
@@ -171,6 +180,39 @@ async function runMatch() {
     }
 }
 
+// ── Calculate Final Score ──
+async function getFinalScore() {
+    if (geneList.length === 0) return;
+    
+    scoreBtn.disabled = true;
+    const originalText = scoreBtn.textContent;
+    scoreBtn.textContent = 'Calculating...';
+    scoreContainer.style.display = 'none';
+    
+    try {
+        const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}`;
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+            throw new Error('Failed to calculate score');
+        }
+        
+        const data = await res.json();
+        
+        scoreValue.textContent = typeof data.score === 'number' ? data.score.toFixed(6) : data.score;
+        scoreGenesCount.textContent = data.genes_counted ? data.genes_counted.length : 0;
+        scoreContainer.style.display = 'block';
+        
+    } catch (err) {
+        console.error(err);
+        alert('Error calculating score: ' + err.message);
+    } finally {
+        scoreBtn.disabled = false;
+        scoreBtn.textContent = originalText;
+    }
+}
+
 // ── Event listeners + initial load ──
 matchBtn.addEventListener('click', runMatch);
+scoreBtn.addEventListener('click', getFinalScore);
 loadFixedSheetData();
