@@ -110,13 +110,12 @@ class CreedsClient:
         return f"beneficial: {beneficial}", f"harmful: {harmful}"
 
 
-def match_gene_set(gene_list: list[str]) -> dict:
+def match_gene_set(gene_list: list[str], disease: str) -> dict:
     """
     For each gene in the list, match disease signatures against
     single gene perturbations and return beneficial/harmful counts.
-    Disease is fixed to 'pulmonary hypertension'.
+    Disease must be provided by the user.
     """
-    disease = "pulmonary hypertension"
     disease_signatures = get_disease_signatures(disease)
     results = []
     for gene in gene_list:

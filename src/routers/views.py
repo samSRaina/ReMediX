@@ -21,6 +21,6 @@ async def gene_match(request: Request):
 async def excel_viewer(request: Request):
     return templates.TemplateResponse(request, "excel_viewer.html")
 
-@router.get("/ppiInteraction", include_in_schema= False, name="ppi_interaction")
+@router.get("/ppiInteraction", include_in_schema= False, name="ppi_interactin")
 async def ppi_interaction(request: Request):
     return templates.TemplateResponse(request, "ppi_interaction.html")

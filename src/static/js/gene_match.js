@@ -1,11 +1,12 @@
 // ── Configuration ──
-const FIXED_DISEASE_NAME = 'pulmonary hypertension';
 const SIGNATURE_PAGE_SIZE = 100;
 
-// ── Read gene_set from URL query params ──
+// ── Read gene_set and disease from URL query params ──
 const params = new URLSearchParams(window.location.search);
 const genesParam = params.get('genes');
+const diseaseParam = params.get('disease');
 const geneList = genesParam ? genesParam.split(',').filter(g => g.trim()) : [];
+const FIXED_DISEASE_NAME = diseaseParam;  // No default - must be provided by user
 
 // ── Match DOM refs ──
 const tbody = document.getElementById('match-tbody');
@@ -18,6 +19,7 @@ const scoreBtn = document.getElementById('score-btn');
 const scoreContainer = document.getElementById('score-container');
 const scoreValue = document.getElementById('score-value');
 const scoreGenesCount = document.getElementById('score-genes-count');
+const diseaseNameDisplay = document.getElementById('disease-name-display');
 
 // ── Fixed sheet DOM refs ──
 const sheetNameLabel = document.getElementById('sheet-name-label');
@@ -63,6 +65,9 @@ function renderSheetTable(headers, rows) {
 }
 
 async function loadFixedSheetData() {
+    if (diseaseNameDisplay) {
+        diseaseNameDisplay.textContent = FIXED_DISEASE_NAME;
+    }
     if (sheetNameLabel) {
         sheetNameLabel.textContent = `Disease: ${FIXED_DISEASE_NAME}`;
     }
@@ -111,7 +116,13 @@ async function loadFixedSheetData() {
 }
 
 // Show gene count on load
-if (geneList.length > 0) {
+if (!FIXED_DISEASE_NAME) {
+    errorMsg.textContent = 'ERROR: No disease provided. Please go back to Home, select a disease, and try again.';
+    geneInfo.textContent = 'Invalid state: missing disease parameter.';
+    emptyState.style.display = 'block';
+    matchBtn.disabled = true;
+    scoreBtn.disabled = true;
+} else if (geneList.length > 0) {
     geneInfo.textContent = `Gene set: ${geneList.length} gene(s) — ${geneList.join(', ')}`;
 } else {
     geneInfo.textContent = 'No gene set found. Go back to Home and search a compound first.';
@@ -133,7 +144,7 @@ async function runMatch() {
     if (scoreContainer) scoreContainer.style.display = 'none'; // hide previous score
 
     try {
-        const url = `/api/match?genes=${encodeURIComponent(geneList.join(','))}`;
+        const url = `/api/match?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(FIXED_DISEASE_NAME)}`;
         const res = await fetch(url);
 
         if (!res.ok) {
@@ -190,11 +201,12 @@ async function getFinalScore() {
     scoreContainer.style.display = 'none';
     
     try {
-        const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}`;
+        const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(FIXED_DISEASE_NAME)}`;
         const res = await fetch(url);
         
         if (!res.ok) {
-            throw new Error('Failed to calculate score');
+            const detail = await res.json().catch(() => ({}));
+            throw new Error(detail.detail || 'Failed to calculate score');
         }
         
         const data = await res.json();

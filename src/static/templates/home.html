@@ -16,6 +16,14 @@
                 <label for="searchbar-toggle" class="form-check-label">Search via SMILE</label>
             </div>
         </div>
+        <div class="mb-3">
+            <label for="disease-input" class="form-label">Target Disease (for Gene Matching):</label>
+            <input type="text" id="disease-input" name="disease-name" class="form-control" placeholder="e.g. pulmonary hypertension" list="disease-list" required>
+            <datalist id="disease-list">
+                <option value="Loading diseases..."></option>
+            </datalist>
+            <small class="form-text text-muted">This disease will be used for gene signature matching. Required field.</small>
+        </div>
         <button type="submit" class="btn btn-dark w-100">Get Properties</button>
     </form>
 
