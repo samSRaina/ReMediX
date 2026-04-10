@@ -35,23 +35,28 @@ async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str
     gene_set = chembl.get_gene_set(inchikey)
     return {"activities": result, "gene_set": sorted(gene_set)}
 
-# CREEDS match endpoint — matches each gene against disease signatures (pulmonary hypertension)
+# CREEDS match endpoint — matches each gene against disease signatures
 @router.get("/match")
-async def get_gene_match(genes: str):
-    """genes = comma-separated gene symbols"""
+async def get_gene_match(genes: str, disease: str):
+    """genes = comma-separated gene symbols, disease = target disease name (required)"""
     gene_list = [g.strip() for g in genes.split(",") if g.strip()]
     if not gene_list:
         raise HTTPException(status_code=400, detail="No genes provided")
-    return creeds_client.match_gene_set(gene_list)
+    if not disease or not disease.strip():
+        raise HTTPException(status_code=400, detail="Disease parameter is required")
+    return creeds_client.match_gene_set(gene_list, disease)
 
 @router.get("/finalGeneScore")
-async def get_final_gene_score(genes: str):
+async def get_final_gene_score(genes: str, disease: str):
     """
     Calculate final score based on beneficial matches.
     Sum 'Final Score' from 'Final Gene Score' sheet for beneficial genes,
     then divide by predefined DIVISOR.
     """
-    return final_gene_score.calculate_final_score(genes)
+    try:
+        return final_gene_score.calculate_final_score(genes, disease)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/chembl/inchikey/{inchkey}/bioactivity/{target_chembl_id}/target")
@@ -115,8 +120,10 @@ async def get_excel_sheet(name: str, page: int = 1, page_size: int = 100):
 
 
 @router.get("/diseaseSignature/table")
-async def get_disease_signature_table(disease: str = "pulmonary hypertension", page: int = 1, page_size: int = 100):
-    """Export one disease signature to JSON and return a paginated table payload."""
+async def get_disease_signature_table(disease: str, page: int = 1, page_size: int = 100):
+    """Return a paginated disease signature table. Disease parameter is required."""
+    if not disease or not disease.strip():
+        raise HTTPException(status_code=400, detail="Disease parameter is required")
     try:
         payload = creeds_client.export_disease_signature_table(disease)
     except ValueError as exc:
@@ -140,5 +147,15 @@ async def get_disease_signature_table(disease: str = "pulmonary hypertension", p
         "totalPages": total_pages,
     }
 
+
+@router.get("/diseases")
+async def get_available_diseases():
+    """Return list of available diseases in CREEDS dataset."""
+    try:
+        dataset = creeds_client._load_disease_signature_dataset()
+        diseases = sorted(set(str(entry.get('disease_name', '')).strip() for entry in dataset if entry.get('disease_name')))
+        return {"diseases": diseases}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load diseases: {str(e)}")
 
 # ── helpers ────────────────────────────────────────────────────

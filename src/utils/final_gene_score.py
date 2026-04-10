@@ -42,7 +42,7 @@ def load_excel_sheets() -> dict[str, list[list]]:
     return result
 
 
-def calculate_final_score(genes: str) -> dict:
+def calculate_final_score(genes: str, disease: str) -> dict:
     """
     Calculate final score based on beneficial matches.
     Sum 'Final Score' from 'Final Gene Score' sheet for beneficial genes,
@@ -50,11 +50,13 @@ def calculate_final_score(genes: str) -> dict:
     """
     if not genes:
         return {"score": 0.0}
+    if not disease or not disease.strip():
+        raise ValueError("Disease parameter is required for final score calculation")
 
     gene_list = [g.strip() for g in genes.split(",") if g.strip()]
     
     # 1. Get match results to find beneficial genes
-    match_data = creeds_client.match_gene_set(gene_list)
+    match_data = creeds_client.match_gene_set(gene_list, disease)
     results = match_data.get("results", [])
     
     beneficial_genes = set()
