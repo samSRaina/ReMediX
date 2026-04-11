@@ -1,14 +1,11 @@
-// ── Configuration ──
 const SIGNATURE_PAGE_SIZE = 100;
 
-// ── Read gene_set and disease from URL query params ──
 const params = new URLSearchParams(window.location.search);
 const genesParam = params.get('genes');
-const diseaseParam = params.get('disease');
+const diseaseParam = (params.get('disease') || '').trim();
 const geneList = genesParam ? genesParam.split(',').filter(g => g.trim()) : [];
-const FIXED_DISEASE_NAME = diseaseParam;  // No default - must be provided by user
+let selectedDisease = diseaseParam;
 
-// ── Match DOM refs ──
 const tbody = document.getElementById('match-tbody');
 const emptyState = document.getElementById('match-empty');
 const loadingState = document.getElementById('match-loading');
@@ -20,9 +17,9 @@ const scoreContainer = document.getElementById('score-container');
 const scoreValue = document.getElementById('score-value');
 const scoreGenesCount = document.getElementById('score-genes-count');
 const diseaseNameDisplay = document.getElementById('disease-name-display');
+const diseaseInput = document.getElementById('disease-input');
+const diseaseList = document.getElementById('disease-list');
 
-// ── Fixed sheet DOM refs ──
-const sheetNameLabel = document.getElementById('sheet-name-label');
 const sheetThead = document.getElementById('sheet-thead');
 const sheetTbody = document.getElementById('sheet-tbody');
 const sheetLoading = document.getElementById('sheet-loading');
@@ -41,13 +38,12 @@ function clearSheetTable() {
 
 function renderSheetTable(headers, rows) {
     clearSheetTable();
-
     if (!sheetThead || !sheetTbody) return;
 
     const headRow = document.createElement('tr');
     headers.forEach(header => {
         const th = document.createElement('th');
-        th.textContent = (header == null || header === '') ? '—' : String(header);
+        th.textContent = (header == null || header === '') ? '-' : String(header);
         headRow.appendChild(th);
     });
     sheetThead.appendChild(headRow);
@@ -57,19 +53,79 @@ function renderSheetTable(headers, rows) {
         headers.forEach((_, index) => {
             const td = document.createElement('td');
             const value = row[index];
-            td.textContent = (value == null || value === '') ? '—' : String(value);
+            td.textContent = (value == null || value === '') ? '-' : String(value);
             tr.appendChild(td);
         });
         sheetTbody.appendChild(tr);
     });
 }
 
-async function loadFixedSheetData() {
-    if (diseaseNameDisplay) {
-        diseaseNameDisplay.textContent = FIXED_DISEASE_NAME;
+function updateControlState() {
+    const hasGenes = geneList.length > 0;
+    const hasDisease = Boolean(selectedDisease);
+    matchBtn.disabled = !(hasGenes && hasDisease);
+
+    if (!hasGenes) {
+        geneInfo.textContent = 'No gene set found. Go back to Home and search a compound first.';
+        emptyState.style.display = 'block';
+    } else if (!hasDisease) {
+        geneInfo.textContent = `Gene set: ${geneList.length} gene(s). Select a disease to continue.`;
+    } else {
+        geneInfo.textContent = `Gene set: ${geneList.length} gene(s) - Disease: ${selectedDisease}`;
     }
-    if (sheetNameLabel) {
-        sheetNameLabel.textContent = `Disease: ${FIXED_DISEASE_NAME}`;
+}
+
+function clearResultsForDiseaseChange() {
+    tbody.innerHTML = '';
+    emptyState.style.display = geneList.length === 0 ? 'block' : 'none';
+    showEl(loadingState, false);
+    scoreBtn.disabled = true;
+    if (scoreContainer) scoreContainer.style.display = 'none';
+}
+
+async function loadAvailableDiseases() {
+    if (!diseaseList) return;
+    diseaseList.innerHTML = '';
+
+    try {
+        const response = await fetch('/api/diseases');
+        if (!response.ok) {
+            throw new Error(`Failed to load diseases (HTTP ${response.status})`);
+        }
+
+        const data = await response.json();
+        const diseases = data.diseases || [];
+
+        if (diseases.length === 0) {
+            const option = document.createElement('option');
+            option.value = 'No diseases available';
+            diseaseList.appendChild(option);
+            return;
+        }
+
+        diseases.forEach(disease => {
+            const option = document.createElement('option');
+            option.value = disease;
+            diseaseList.appendChild(option);
+        });
+    } catch (err) {
+        console.error('Failed to load diseases:', err);
+        const option = document.createElement('option');
+        option.value = 'Could not load diseases';
+        diseaseList.appendChild(option);
+        if (errorMsg) {
+            errorMsg.textContent = 'Could not load disease list. Make sure the backend is running and refresh the page.';
+        }
+    }
+}
+
+async function loadDiseaseSignatureTable() {
+    if (!selectedDisease) {
+        clearSheetTable();
+        showEl(sheetLoading, false);
+        showEl(sheetError, false);
+        showEl(sheetEmpty, true);
+        return;
     }
 
     clearSheetTable();
@@ -79,7 +135,7 @@ async function loadFixedSheetData() {
 
     try {
         const query = new URLSearchParams({
-            disease: FIXED_DISEASE_NAME,
+            disease: selectedDisease,
             page: '1',
             page_size: String(SIGNATURE_PAGE_SIZE)
         });
@@ -102,9 +158,7 @@ async function loadFixedSheetData() {
         }
 
         renderSheetTable(headers, data);
-        if (data.length === 0) {
-            showEl(sheetEmpty, true);
-        }
+        if (data.length === 0) showEl(sheetEmpty, true);
     } catch (err) {
         if (sheetError) {
             sheetError.textContent = err.message || 'Failed to load disease signature data.';
@@ -115,24 +169,27 @@ async function loadFixedSheetData() {
     }
 }
 
-// Show gene count on load
-if (!FIXED_DISEASE_NAME) {
-    errorMsg.textContent = 'ERROR: No disease provided. Please go back to Home, select a disease, and try again.';
-    geneInfo.textContent = 'Invalid state: missing disease parameter.';
-    emptyState.style.display = 'block';
-    matchBtn.disabled = true;
-    scoreBtn.disabled = true;
-} else if (geneList.length > 0) {
-    geneInfo.textContent = `Gene set: ${geneList.length} gene(s) — ${geneList.join(', ')}`;
-} else {
-    geneInfo.textContent = 'No gene set found. Go back to Home and search a compound first.';
-    emptyState.style.display = 'block';
+async function setDisease(diseaseName, shouldLoadTable = true) {
+    selectedDisease = (diseaseName || '').trim();
+    if (diseaseNameDisplay) {
+        diseaseNameDisplay.textContent = selectedDisease || 'Not selected';
+    }
+
+    updateControlState();
+    clearResultsForDiseaseChange();
+
+    if (shouldLoadTable) {
+        await loadDiseaseSignatureTable();
+    }
 }
 
-// ── Fetch match results ──
 async function runMatch() {
     if (geneList.length === 0) {
         errorMsg.textContent = 'No genes available to match.';
+        return;
+    }
+    if (!selectedDisease) {
+        errorMsg.textContent = 'Please select a disease first.';
         return;
     }
 
@@ -140,15 +197,15 @@ async function runMatch() {
     tbody.innerHTML = '';
     emptyState.style.display = 'none';
     loadingState.style.display = 'block';
-    scoreBtn.disabled = true; // disable score button during match
-    if (scoreContainer) scoreContainer.style.display = 'none'; // hide previous score
+    scoreBtn.disabled = true;
+    if (scoreContainer) scoreContainer.style.display = 'none';
 
     try {
-        const url = `/api/match?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(FIXED_DISEASE_NAME)}`;
+        const url = `/api/match?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(selectedDisease)}`;
         const res = await fetch(url);
 
         if (!res.ok) {
-            const detail = await res.json();
+            const detail = await res.json().catch(() => ({}));
             throw new Error(detail.detail || `HTTP ${res.status}`);
         }
 
@@ -160,11 +217,9 @@ async function runMatch() {
             emptyState.style.display = 'block';
             return;
         }
-        
-        // Enable score button if we have results
-        scoreBtn.disabled = false;
 
-        geneInfo.textContent = `Gene set: ${geneList.length} gene(s) — Disease: ${json.disease}`;
+        scoreBtn.disabled = false;
+        geneInfo.textContent = `Gene set: ${geneList.length} gene(s) - Disease: ${json.disease}`;
 
         json.results.forEach(row => {
             const tr = document.createElement('tr');
@@ -191,30 +246,27 @@ async function runMatch() {
     }
 }
 
-// ── Calculate Final Score ──
 async function getFinalScore() {
-    if (geneList.length === 0) return;
-    
+    if (geneList.length === 0 || !selectedDisease) return;
+
     scoreBtn.disabled = true;
     const originalText = scoreBtn.textContent;
     scoreBtn.textContent = 'Calculating...';
     scoreContainer.style.display = 'none';
-    
+
     try {
-        const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(FIXED_DISEASE_NAME)}`;
+        const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(selectedDisease)}`;
         const res = await fetch(url);
-        
+
         if (!res.ok) {
             const detail = await res.json().catch(() => ({}));
             throw new Error(detail.detail || 'Failed to calculate score');
         }
-        
+
         const data = await res.json();
-        
         scoreValue.textContent = typeof data.score === 'number' ? data.score.toFixed(6) : data.score;
         scoreGenesCount.textContent = data.genes_counted ? data.genes_counted.length : 0;
         scoreContainer.style.display = 'block';
-        
     } catch (err) {
         console.error(err);
         alert('Error calculating score: ' + err.message);
@@ -224,7 +276,17 @@ async function getFinalScore() {
     }
 }
 
-// ── Event listeners + initial load ──
 matchBtn.addEventListener('click', runMatch);
 scoreBtn.addEventListener('click', getFinalScore);
-loadFixedSheetData();
+
+diseaseInput.addEventListener('input', async () => {
+    await setDisease(diseaseInput.value);
+});
+
+(async function init() {
+    await loadAvailableDiseases();
+    if (diseaseParam && diseaseInput) {
+        diseaseInput.value = diseaseParam;
+    }
+    await setDisease(diseaseInput ? diseaseInput.value : '', true);
+})();

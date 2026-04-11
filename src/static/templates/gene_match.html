@@ -18,7 +18,15 @@
         <a href="{{ url_for('home') }}" class="btn btn-outline-dark btn-sm">Back to Home</a>
     </div>
 
-    <div class="row mb-3 align-items-end">
+    <div class="row mb-3 g-3 align-items-end">
+        <div class="col-md-8">
+            <label for="disease-input" class="form-label">Target Disease</label>
+            <input type="text" id="disease-input" class="form-control" placeholder="Select or type a disease" list="disease-list">
+            <datalist id="disease-list">
+                <option value="Loading diseases..."></option>
+            </datalist>
+            <small class="text-muted">Choose the disease before running match or score.</small>
+        </div>
         <div class="col-md-4 d-flex align-items-end gap-2">
             <button id="match-btn" class="btn btn-dark flex-grow-1">Run Match</button>
             <button id="score-btn" class="btn btn-outline-dark flex-grow-1" disabled>Get Score</button>
@@ -65,7 +73,7 @@
         <div class="col-12 col-lg-6">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h2 class="h6 mb-0">Disease Signature Table</h2>
-                <small class="text-muted" id="sheet-name-label">Disease: <span id="disease-name-display">Loading...</span></small>
+                <small class="text-muted" id="sheet-name-label">Disease: <span id="disease-name-display">Not selected</span></small>
             </div>
             <div class="table-responsive">
                 <table class="table table-sm table-striped table-hover mb-0" id="sheet-table">
