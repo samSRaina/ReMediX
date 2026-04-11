@@ -97,22 +97,14 @@ async function fetchBioactivity(inchiKey, standardType) {
 function updateGeneMatchLink() {
     let link = document.getElementById('gene-match-link');
     if (currentGeneSet.length > 0) {
-        const diseaseInput = document.getElementById('disease-input').value.trim();
-        
-        // Only show link if disease is provided
-        if (!diseaseInput) {
-            if (link) link.style.display = 'none';
-            return;
-        }
-        
         if (!link) {
             link = document.createElement('a');
             link.id = 'gene-match-link';
             link.className = 'btn btn-outline-dark btn-sm mt-2';
             document.getElementById('chembl').querySelector('.card-body').appendChild(link);
         }
-        link.href = `/geneMatch?genes=${encodeURIComponent(currentGeneSet.join(','))}&disease=${encodeURIComponent(diseaseInput)}`;
-        link.textContent = `Match ${currentGeneSet.length} gene(s) against disease →`;
+        link.href = `/geneMatch?genes=${encodeURIComponent(currentGeneSet.join(','))}`;
+        link.textContent = `Match ${currentGeneSet.length} gene(s) on next page →`;
         link.style.display = 'inline-block';
     } else if (link) {
         link.style.display = 'none';
@@ -246,29 +238,8 @@ async function fetchProperties() {
     }
 }
 
-// Load available diseases for datalist
-async function loadAvailableDiseases() {
-    try {
-        const response = await fetch('/api/diseases');
-        if (response.ok) {
-            const data = await response.json();
-            const diseaseList = document.getElementById('disease-list');
-            diseaseList.innerHTML = ''; // Clear loading option
-            data.diseases.forEach(disease => {
-                const option = document.createElement('option');
-                option.value = disease;
-                diseaseList.appendChild(option);
-            });
-        }
-    } catch (err) {
-        console.error('Failed to load diseases:', err);
-    }
-}
-
 // Initialize event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Load available diseases
-    loadAvailableDiseases();
 
     document.getElementById('home-form').addEventListener('submit', (e) => {
         e.preventDefault();
