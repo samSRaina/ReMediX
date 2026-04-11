@@ -12,3 +12,5 @@ src/data
 src/data.zip
 .idea
 gc
+frontend/node_modules/
+frontend/dist/
