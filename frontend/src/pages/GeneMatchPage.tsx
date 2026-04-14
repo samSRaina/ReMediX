@@ -93,7 +93,7 @@ export function GeneMatchPage() {
               onChange={(event) => setDisease(event.target.value)}
               list="disease-list"
               placeholder="Select or type a disease"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none ring-cyan-400 focus:ring"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
             />
             <datalist id="disease-list">
               {diseases.map((d) => (
@@ -106,7 +106,7 @@ export function GeneMatchPage() {
             type="button"
             onClick={() => void runMatch()}
             disabled={loading || !disease || genes.length === 0}
-            className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+            className="rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-500 disabled:opacity-50"
           >
             Run Match
           </button>
@@ -114,7 +114,7 @@ export function GeneMatchPage() {
             type="button"
             onClick={() => void calculateScore()}
             disabled={loading || !disease || genes.length === 0 || matchResults.length === 0}
-            className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
           >
             Get Score
           </button>
@@ -128,8 +128,8 @@ export function GeneMatchPage() {
         {score ? (
           <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 p-4">
             <p className="text-sm font-semibold text-cyan-900">Re-purposing Score</p>
-            <p className="text-2xl font-bold text-cyan-800">{typeof score.score === 'number' ? score.score.toFixed(6) : score.score}</p>
-            <p className="text-xs text-cyan-700">Based on {score.genes_counted?.length ?? 0} beneficial genes</p>
+            <p className="text-2xl font-bold text-cyan-800">{score.score.toFixed(6)}</p>
+            <p className="text-xs text-cyan-700">Based on {score.genes_counted?.length ?? 0} classified genes</p>
           </div>
         ) : null}
 
@@ -144,17 +144,25 @@ export function GeneMatchPage() {
           ) : matchResults.length === 0 ? (
             <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No match results yet.</p>
           ) : (
-            <div className="overflow-auto rounded-xl border border-slate-200">
-              <table className="min-w-full text-sm">
+            <div className="table-shell">
+              <table className="table-ui">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <tr><th className="px-3 py-2">Gene</th><th className="px-3 py-2">Beneficial</th><th className="px-3 py-2">Harmful</th></tr>
+                  <tr>
+                    <th className="px-3 py-2">Gene</th>
+                    <th className="px-3 py-2">Total Up</th>
+                    <th className="px-3 py-2">Total Down</th>
+                    <th className="px-3 py-2">Ratio</th>
+                    <th className="px-3 py-2">Direction</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {matchResults.map((row) => (
-                    <tr key={row.gene} className="border-t border-slate-100">
+                    <tr key={row.gene}>
                       <td className="px-3 py-2 font-medium">{row.gene}</td>
-                      <td className="px-3 py-2 text-emerald-700">{row.beneficial}</td>
-                      <td className="px-3 py-2 text-rose-700">{row.harmful}</td>
+                      <td className="px-3 py-2 text-emerald-700">{row.total_up}</td>
+                      <td className="px-3 py-2 text-rose-700">{row.total_down}</td>
+                      <td className="px-3 py-2">{typeof row.ratio === 'number' ? row.ratio.toFixed(3) : 'N/A'}</td>
+                      <td className="px-3 py-2">{row.direction ?? row.error ?? 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -170,14 +178,14 @@ export function GeneMatchPage() {
           ) : !table || !table.data || table.data.length === 0 ? (
             <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No disease signature data loaded.</p>
           ) : (
-            <div className="overflow-auto rounded-xl border border-slate-200">
-              <table className="min-w-full text-sm">
+            <div className="table-shell">
+              <table className="table-ui">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                   <tr>{table.headers.map((h: string) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {table.data.map((row: Array<string | number>, idx: number) => (
-                    <tr key={`${row[0]}-${idx}`} className="border-t border-slate-100">
+                    <tr key={`${row[0]}-${idx}`}>
                       {row.map((cell: string | number, cidx: number) => <td key={`${idx}-${cidx}`} className="px-3 py-2">{String(cell)}</td>)}
                     </tr>
                   ))}

@@ -46,8 +46,14 @@ export interface BioactivityResponse {
 
 export interface GeneMatchItem {
   gene: string;
-  beneficial: string;
-  harmful: string;
+  up_genes: Array<{ gene: string; drug_score: number; disease_score: number }>;
+  down_genes: Array<{ gene: string; drug_score: number; disease_score: number }>;
+  total_up: number;
+  total_down: number;
+  ratio: number | null;
+  direction: 'up' | 'down' | 'ambiguous' | null;
+  threshold: number;
+  error: string | null;
 }
 
 export interface GeneMatchResponse {

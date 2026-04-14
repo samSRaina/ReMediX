@@ -73,7 +73,9 @@ export function ExcelViewerPage() {
                   type="button"
                   onClick={() => setActiveSheet(name)}
                   className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                    activeSheet === name ? 'bg-cyan-600 text-white' : 'border border-slate-300 hover:bg-slate-50'
+                    activeSheet === name
+                      ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/30'
+                      : 'border border-slate-300 bg-white hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50'
                   }`}
                 >
                   {name.trim()}
@@ -90,14 +92,14 @@ export function ExcelViewerPage() {
                 <p className="mb-3 text-sm text-slate-600">
                   Showing {(sheetPage.page - 1) * sheetPage.pageSize + 1}–{Math.min(sheetPage.page * sheetPage.pageSize, sheetPage.total)} of {sheetPage.total.toLocaleString()} rows.
                 </p>
-                <div className="overflow-auto rounded-xl border border-slate-200">
-                  <table className="min-w-full text-sm">
+                <div className="table-shell">
+                  <table className="table-ui">
                     <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                       <tr>{sheetPage.headers.map((h: string | null, idx: number) => <th key={`${String(h)}-${idx}`} className="px-3 py-2">{String(h || '-')}</th>)}</tr>
                     </thead>
                     <tbody>
                       {sheetPage.data.map((row: Array<string | number | null>, rIdx: number) => (
-                        <tr key={`r-${rIdx}`} className="border-t border-slate-100">
+                        <tr key={`r-${rIdx}`}>
                           {sheetPage.headers.map((_: string | null, cIdx: number) => <td key={`c-${rIdx}-${cIdx}`} className="px-3 py-2">{String(row[cIdx] ?? '-')}</td>)}
                         </tr>
                       ))}
@@ -108,7 +110,7 @@ export function ExcelViewerPage() {
                 {sheetPage.totalPages > 1 ? (
                   <div className="mt-4 flex items-center justify-center gap-2">
                     <button
-                      className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
                       disabled={sheetPage.page <= 1}
                       onClick={() => setPageBySheet((prev) => ({ ...prev, [activeSheet]: Math.max(1, sheetPage.page - 1) }))}
                     >
@@ -116,7 +118,7 @@ export function ExcelViewerPage() {
                     </button>
                     <span className="text-sm text-slate-600">Page {sheetPage.page} / {sheetPage.totalPages}</span>
                     <button
-                      className="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                      className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
                       disabled={sheetPage.page >= sheetPage.totalPages}
                       onClick={() => setPageBySheet((prev) => ({ ...prev, [activeSheet]: Math.min(sheetPage.totalPages, sheetPage.page + 1) }))}
                     >

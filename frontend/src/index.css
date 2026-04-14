@@ -2,3 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+	@apply bg-gradient-to-br from-cyan-50 via-slate-50 to-slate-100 text-slate-900 antialiased;
+  }
+
+  ::selection {
+	@apply bg-cyan-200/70 text-slate-900;
+  }
+}
+
+@layer components {
+  .panel-soft {
+	@apply rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm backdrop-blur;
+  }
+
+  .table-shell {
+	@apply overflow-auto rounded-xl border border-slate-200/80 bg-white;
+  }
+
+  .table-ui {
+	@apply min-w-full text-sm;
+  }
+
+  .table-ui thead {
+	@apply bg-slate-50/90 text-left text-xs uppercase tracking-wide text-slate-500;
+  }
+
+  .table-ui tbody tr {
+	@apply border-t border-slate-100 transition;
+  }
+
+  .table-ui tbody tr:hover {
+	@apply bg-cyan-50/40;
+  }
+}
