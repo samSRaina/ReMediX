@@ -85,35 +85,82 @@ class CreedsClient:
 
         return response_dataset
 
-    def match_genes(self, disease_genes: list, drug_perturbations: list):
-        beneficial = 0
-        harmful = 0
-        
-        # Create a lookup for disease genes for faster matching
-        # Key: gene (lowercase), Value: score
+    def match_genes(self, disease_genes: list, drug_perturbations: list) -> dict:
+        """
+        Build directional match data for one input gene.
+        - Count matched perturbation rows as up/down based on drug score sign.
+        - Compute ratio = larger_count / smaller_count when both sides are non-zero.
+        - Classify as ambiguous when ratio <= 1.2, else up/down by larger side.
+        """
+        threshold = 1.2
+
+        # Key: disease gene symbol (lowercase), Value: disease score.
         disease_map = {str(g[0]).strip().lower(): g[1] for g in disease_genes}
+        up_genes = []
+        down_genes = []
 
         for drug_gene_entry in drug_perturbations:
-            gene_sym = str(drug_gene_entry[0]).strip().lower()
+            gene_sym_raw = str(drug_gene_entry[0]).strip()
+            gene_sym_key = gene_sym_raw.lower()
             drug_score = drug_gene_entry[1]
-            
-            if gene_sym in disease_map:
-                disease_score = disease_map[gene_sym]
-                
-                # Opposite signs -> Beneficial (drug reverses disease signature)
-                if (drug_score < 0 < disease_score) or (drug_score > 0 > disease_score):
-                    beneficial += 1
-                # Same signs -> Harmful (drug exacerbates disease signature)
-                elif (drug_score < 0 and disease_score < 0) or (drug_score > 0 and disease_score > 0):
-                    harmful += 1
 
-        return f"beneficial: {beneficial}", f"harmful: {harmful}"
+            if gene_sym_key not in disease_map:
+                continue
+
+            if not isinstance(drug_score, (int, float)):
+                continue
+
+            row = {
+                "gene": gene_sym_raw,
+                "drug_score": drug_score,
+                "disease_score": disease_map[gene_sym_key],
+            }
+
+            if drug_score > 0:
+                up_genes.append(row)
+            elif drug_score < 0:
+                down_genes.append(row)
+
+        total_up = len(up_genes)
+        total_down = len(down_genes)
+
+        if total_up == 0 or total_down == 0:
+            return {
+                "up_genes": up_genes,
+                "down_genes": down_genes,
+                "total_up": total_up,
+                "total_down": total_down,
+                "ratio": None,
+                "direction": None,
+                "threshold": threshold,
+                "error": "Ratio is null because one side has zero matches",
+            }
+
+        larger = max(total_up, total_down)
+        smaller = min(total_up, total_down)
+        ratio = larger / smaller
+
+        if ratio <= threshold:
+            direction = "ambiguous"
+        else:
+            direction = "up" if total_up > total_down else "down"
+
+        return {
+            "up_genes": up_genes,
+            "down_genes": down_genes,
+            "total_up": total_up,
+            "total_down": total_down,
+            "ratio": ratio,
+            "direction": direction,
+            "threshold": threshold,
+            "error": None,
+        }
 
 
 def match_gene_set(gene_list: list[str], disease: str) -> dict:
     """
     For each gene in the list, match disease signatures against
-    single gene perturbations and return beneficial/harmful counts.
+    single gene perturbations and return directional up/down summaries.
     Disease must be provided by the user.
     """
     disease_signatures = get_disease_signatures(disease)
@@ -121,11 +168,17 @@ def match_gene_set(gene_list: list[str], disease: str) -> dict:
     for gene in gene_list:
         client = CreedsClient(gene)
         single_perturbations = client.get_single_drug_perturbations()
-        beneficial_str, harmful_str = client.match_genes(disease_signatures, single_perturbations)
+        directional_data = client.match_genes(disease_signatures, single_perturbations)
         results.append({
             "gene": gene,
-            "beneficial": beneficial_str,
-            "harmful": harmful_str,
+            "up_genes": directional_data["up_genes"],
+            "down_genes": directional_data["down_genes"],
+            "total_up": directional_data["total_up"],
+            "total_down": directional_data["total_down"],
+            "ratio": directional_data["ratio"],
+            "direction": directional_data["direction"],
+            "threshold": directional_data["threshold"],
+            "error": directional_data["error"],
         })
     return {"disease": disease, "genes_matched": len(results), "results": results}
 

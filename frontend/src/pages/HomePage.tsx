@@ -131,6 +131,9 @@ export function HomePage() {
     <AppLayout title="VascuMap Explorer" subtitle="Modernized biomedical discovery interface">
       <Surface>
         <form className="grid gap-4" onSubmit={handleSearch}>
+          <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-4 py-3 text-sm text-cyan-900">
+            Search a compound by name or SMILES, then open matching genes for disease-level directional analysis.
+          </div>
           <label className="space-y-2">
             <span className="text-sm font-medium">Compound Lookup</span>
             <div className="relative">
@@ -139,7 +142,7 @@ export function HomePage() {
                 value={compoundInput}
                 onChange={(event: ChangeEvent<HTMLInputElement>) => setCompoundInput(event.target.value)}
                 placeholder={searchBySmile ? 'CC(=O)OC1=CC=CC=C1C(=O)O' : 'Aspirin'}
-                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none ring-cyan-400 transition focus:ring"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
               />
             </div>
           </label>
@@ -158,7 +161,7 @@ export function HomePage() {
             <button
               type="submit"
               disabled={isSearching}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-500 disabled:opacity-50"
             >
               {isSearching ? <Loader2 className="animate-spin" size={16} /> : <FlaskConical size={16} />}
               {isSearching ? 'Searching...' : 'Fetch Compound Profile'}
@@ -167,7 +170,7 @@ export function HomePage() {
             {geneSet.length > 0 ? (
               <Link
                 to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}`}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium transition hover:bg-slate-100"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
               >
                 Open Gene Match ({geneSet.length})
               </Link>
@@ -185,7 +188,7 @@ export function HomePage() {
               ({ title, icon: Icon }) => (
                 <Tab
                   key={title}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition data-[selected]:bg-cyan-600 data-[selected]:text-white data-[hover]:bg-slate-100"
+                  className="inline-flex items-center gap-2 rounded-xl border border-transparent px-3 py-2 text-sm font-medium transition data-[selected]:border-cyan-600 data-[selected]:bg-cyan-600 data-[selected]:text-white data-[hover]:bg-slate-100"
                 >
                   <Icon size={16} />
                   {title}
@@ -230,7 +233,9 @@ export function HomePage() {
                     type="button"
                     onClick={() => setBioactivityType(type)}
                     className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                      bioactivityType === type ? 'bg-cyan-600 text-white' : 'border border-slate-300 hover:bg-slate-100'
+                      bioactivityType === type
+                        ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/30'
+                        : 'border border-slate-300 bg-white hover:border-cyan-300 hover:bg-cyan-50'
                     }`}
                   >
                     {type}
@@ -240,7 +245,7 @@ export function HomePage() {
                   value={bioFilter}
                   onChange={(event: ChangeEvent<HTMLInputElement>) => setBioFilter(event.target.value)}
                   placeholder="Filter by target, gene, UniProt, ChEMBL ID"
-                  className="min-w-[280px] flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-cyan-400 focus:ring"
+                  className="min-w-[280px] flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
                 />
               </div>
 
@@ -249,8 +254,8 @@ export function HomePage() {
               ) : filteredSortedBioactivity.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No bioactivity rows match the current filter.</p>
               ) : (
-                <div className="overflow-auto rounded-xl border border-slate-200">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <div className="table-shell">
+                  <table className="table-ui divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                       <tr>
                         {BIOACTIVITY_COLUMNS.map((column) => (
@@ -265,7 +270,7 @@ export function HomePage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredSortedBioactivity.map((row, index) => (
-                        <tr key={`${row.target_chembl_id}-${row.gene_symbol}-${index}`} className="transition hover:bg-slate-50">
+                        <tr key={`${row.target_chembl_id}-${row.gene_symbol}-${index}`}>
                           {BIOACTIVITY_COLUMNS.map((column) => (
                             <td key={column.key} className="whitespace-nowrap px-3 py-2">{formatValue(row[column.key])}</td>
                           ))}

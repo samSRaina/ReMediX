@@ -35,7 +35,13 @@ export function PpiInteractionPage() {
           <p className="mb-3 text-xs text-slate-500">Files open in a new tab. Some browsers may download .xlsx files.</p>
           <div className="space-y-2">
             {excelLinks.map(([label, href]) => (
-              <a key={label} href={href} target="_blank" rel="noreferrer" className="block rounded-lg border border-slate-300 px-3 py-2 text-sm transition hover:bg-slate-50">
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
+              >
                 {label}
               </a>
             ))}
@@ -46,7 +52,12 @@ export function PpiInteractionPage() {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Images</h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {images.map(([title, src]) => (
-              <button key={title} type="button" onClick={() => setPreview({ title, src })} className="overflow-hidden rounded-xl border border-slate-200 text-left transition hover:-translate-y-0.5 hover:shadow-md">
+              <button
+                key={title}
+                type="button"
+                onClick={() => setPreview({ title, src })}
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md"
+              >
                 <img src={src} alt={title} className="h-44 w-full object-contain bg-slate-50" />
                 <div className="px-3 py-2 text-sm font-medium">{title}</div>
               </button>
@@ -57,10 +68,10 @@ export function PpiInteractionPage() {
 
       {preview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPreview(null)}>
-          <div className="max-h-[92vh] w-full max-w-6xl rounded-xl bg-white p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[92vh] w-full max-w-6xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold">{preview.title}</h3>
-              <button type="button" onClick={() => setPreview(null)} className="rounded-lg border border-slate-300 px-2 py-1 text-sm">Close</button>
+              <button type="button" onClick={() => setPreview(null)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50">Close</button>
             </div>
             <img src={preview.src} alt={preview.title} className="max-h-[80vh] w-full object-contain" />
           </div>

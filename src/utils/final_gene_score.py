@@ -44,8 +44,8 @@ def load_excel_sheets() -> dict[str, list[list]]:
 
 def calculate_final_score(genes: str, disease: str) -> dict:
     """
-    Calculate final score based on beneficial matches.
-    Sum 'Final Score' from 'Final Gene Score' sheet for beneficial genes,
+    Calculate final score based on non-ambiguous directional matches.
+    Sum 'Final Score' from 'Final Gene Score' sheet for classified genes,
     then divide by predefined DIVISOR.
     """
     if not genes:
@@ -55,24 +55,16 @@ def calculate_final_score(genes: str, disease: str) -> dict:
 
     gene_list = [g.strip() for g in genes.split(",") if g.strip()]
     
-    # 1. Get match results to find beneficial genes
+    # 1. Get match results to find non-ambiguous directional genes
     match_data = creeds_client.match_gene_set(gene_list, disease)
     results = match_data.get("results", [])
-    
-    beneficial_genes = set()
-    for r in results:
-        # Parse "beneficial: N" string
-        b_str = r.get("beneficial", "")
-        # Expected format "beneficial: 5"
-        if ":" in b_str:
-            try:
-                count = int(b_str.split(":")[1].strip())
-                if count >= 1:
-                    beneficial_genes.add(r["gene"].strip().upper())
-            except ValueError:
-                continue
 
-    if not beneficial_genes:
+    scored_genes = set()
+    for r in results:
+        if r.get("direction") in {"up", "down"}:
+            scored_genes.add(r["gene"].strip().upper())
+
+    if not scored_genes:
         return {"score": 0.0, "genes_counted": []}
 
     # 2. Load Excel Data
@@ -146,7 +138,7 @@ def calculate_final_score(genes: str, disease: str) -> dict:
                 except (ValueError, TypeError):
                     continue
 
-    for bg in beneficial_genes:
+    for bg in scored_genes:
         if bg in gene_score_map:
             total_score += gene_score_map[bg]
             genes_found.append(bg)
