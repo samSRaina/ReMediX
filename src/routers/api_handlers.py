@@ -5,22 +5,30 @@ from fastapi import HTTPException
 from ..clients import chembl_client, creeds_client, drugbank_client, geneCards_client, pubchem_client
 from ..utils import final_gene_score
 
+_drugbank_client = drugbank_client.DrugBankClient()
+
 
 # PubChem database endpoints
 async def get_properties_by_name_api(name: str):
-    return pubchem_client.PubChemClient().search_by_name(name)
+    result = pubchem_client.PubChemClient().search_by_name(name)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Compound '{name}' not found in PubChem")
+    return result
 
 
 async def get_properties_by_smile_api(smile: str):
-    return pubchem_client.PubChemClient().search_by_smile(smile)
+    result = pubchem_client.PubChemClient().search_by_smile(smile)
+    if not result:
+        raise HTTPException(status_code=404, detail="Compound not found in PubChem for the provided SMILES")
+    return result
 
 
 # DrugBank database endpoints
 async def get_properties_by_inchikey(inchikey: str):
-    result = drugbank_client.DrugBankClient()
+    result = _drugbank_client.search_drug_by_inchikey(inchikey)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Drug '{inchikey}' not found in DrugBank database")
-    return result.search_drug_by_inchikey(inchikey)
+    return result
 
 
 # ChEMBL database endpoints
