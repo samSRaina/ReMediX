@@ -1,11 +1,11 @@
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
-import { Activity, Clipboard, FlaskConical, Loader2, Search, TestTube2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Activity, ChevronDown, Clipboard, FlaskConical, Loader2, Search, TestTube2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { getBioactivityByInchiKey, getCompoundByName, getCompoundBySmile, getDrugBankByInchiKey } from '../lib/api';
 import type { BioactivityRecord, DrugBankData, PubChemCompound } from '../types/api';
-import { AppLayout, Surface } from '../components/Layout';
+import { AppLayout } from '../components/Layout';
 
 type SortKey = keyof BioactivityRecord;
 type SortDirection = 'asc' | 'desc';
@@ -28,6 +28,10 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+function formatFieldLabel(label: string): string {
+  return label.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function HomePage() {
   const [compoundInput, setCompoundInput] = useState('');
   const [searchBySmile, setSearchBySmile] = useState(false);
@@ -42,6 +46,8 @@ export function HomePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingBioactivity, setIsLoadingBioactivity] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showWorkflow, setShowWorkflow] = useState(false);
+  const workflowSectionRef = useRef<HTMLElement | null>(null);
 
   const currentInchiKey = pubchemData?.InChIKey ?? '';
 
@@ -127,15 +133,67 @@ export function HomePage() {
     }
   }
 
+  function revealWorkflow() {
+    if (showWorkflow) {
+      workflowSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    setShowWorkflow(true);
+    window.setTimeout(() => {
+      workflowSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }
+
   return (
-    <AppLayout title="VascuMap Explorer" subtitle="Modernized biomedical discovery interface">
-      <Surface>
-        <form className="grid gap-4" onSubmit={handleSearch}>
-          <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-4 py-3 text-sm text-cyan-900">
-            Search a compound by name or SMILES, then open matching genes for disease-level directional analysis.
+    <AppLayout fullWidth title="VascuMap" subtitle="Map molecular signals to therapeutic direction">
+      <section className="flex min-h-[calc(100vh-7rem)] items-center px-2 py-6 text-center sm:px-4 sm:py-10">
+        <div className="mx-auto max-w-5xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-600 sm:text-base">Biomedical Discovery Workspace</p>
+          <h2 className="mt-4 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl">VascuMap</h2>
+          <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">
+            VascuMap helps researchers connect compounds, target genes, and disease signatures in one place to support faster,
+            evidence-guided drug repurposing decisions.
+          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={revealWorkflow}
+              className="rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition duration-200 hover:-translate-y-0.5 hover:bg-cyan-500"
+            >
+              Start Compound Search
+            </button>
+            <Link
+              to="/geneExpressions"
+              className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
+            >
+              Explore Gene Expressions
+            </Link>
           </div>
+          <button
+            type="button"
+            onClick={revealWorkflow}
+            className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white/90 px-4 py-2 text-sm text-slate-700 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
+          >
+            Scroll to workflow
+            <ChevronDown size={16} />
+          </button>
+        </div>
+      </section>
+
+      {showWorkflow ? (
+        <>
+          <section ref={workflowSectionRef} className="scroll-mt-28 px-2 sm:px-4">
+        <form className="grid gap-5" onSubmit={handleSearch}>
+          <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-4 py-3">
+            <p className="text-sm font-semibold text-cyan-900">Start with a compound</p>
+            <p className="mt-1 text-sm text-cyan-800/90">
+              Search by compound name or SMILES, then continue into gene-level disease matching.
+            </p>
+          </div>
+
           <label className="space-y-2">
-            <span className="text-sm font-medium">Compound Lookup</span>
+            <span className="text-sm font-medium text-slate-700">Compound lookup</span>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
@@ -147,7 +205,7 @@ export function HomePage() {
             </div>
           </label>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             <label className="inline-flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -161,7 +219,7 @@ export function HomePage() {
             <button
               type="submit"
               disabled={isSearching}
-                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-500 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-500 disabled:opacity-50"
             >
               {isSearching ? <Loader2 className="animate-spin" size={16} /> : <FlaskConical size={16} />}
               {isSearching ? 'Searching...' : 'Fetch Compound Profile'}
@@ -176,12 +234,21 @@ export function HomePage() {
               </Link>
             ) : null}
           </div>
+
+          {(pubchemData || drugbankData || bioactivityRows.length > 0) ? (
+            <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-700">
+              <span className="rounded-lg bg-white px-2 py-1">PubChem: {pubchemData ? 'Loaded' : 'Pending'}</span>
+              <span className="rounded-lg bg-white px-2 py-1">DrugBank: {drugbankData ? 'Loaded' : 'Pending'}</span>
+              <span className="rounded-lg bg-white px-2 py-1">Bioactivity rows: {bioactivityRows.length}</span>
+              <span className="rounded-lg bg-white px-2 py-1">Genes: {geneSet.length}</span>
+            </div>
+          ) : null}
         </form>
 
         {errorMessage ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
-      </Surface>
+      </section>
 
-      <Surface>
+          <section className="px-2 sm:px-4">
         <TabGroup>
           <TabList className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
             {[{ title: 'Chemical Identity', icon: TestTube2 }, { title: 'Curated Pharmacology', icon: Clipboard }, { title: 'Bioactivity', icon: Activity }].map(
@@ -204,8 +271,8 @@ export function HomePage() {
               ) : (
                 <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {Object.entries(pubchemData).map(([key, value]) => (
-                    <div key={key} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <dt className="text-xs uppercase tracking-wide text-slate-500">{key}</dt>
+                    <div key={key} className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
+                      <dt className="text-xs uppercase tracking-wide text-slate-500">{formatFieldLabel(key)}</dt>
                       <dd className="mt-1 text-sm font-medium">{formatValue(value)}</dd>
                     </div>
                   ))}
@@ -218,9 +285,18 @@ export function HomePage() {
                 <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No curated pharmacology returned for this compound.</p>
               ) : (
                 <dl className="grid gap-4">
-                  <div className="rounded-xl border border-slate-200 p-4"><dt className="text-xs uppercase tracking-wide text-slate-500">Groups</dt><dd className="mt-2 text-sm">{(drugbankData.groups ?? []).join(', ') || '--'}</dd></div>
-                  <div className="rounded-xl border border-slate-200 p-4"><dt className="text-xs uppercase tracking-wide text-slate-500">Indications</dt><dd className="mt-2 text-sm">{formatValue(drugbankData.indication)}</dd></div>
-                  <div className="rounded-xl border border-slate-200 p-4"><dt className="text-xs uppercase tracking-wide text-slate-500">Targets</dt><dd className="mt-2 text-sm">{(drugbankData.targets ?? []).join(', ') || '--'}</dd></div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Groups</dt>
+                    <dd className="mt-2 text-sm">{(drugbankData.groups ?? []).join(', ') || '--'}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Indications</dt>
+                    <dd className="mt-2 text-sm">{formatValue(drugbankData.indication)}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Targets</dt>
+                    <dd className="mt-2 text-sm">{(drugbankData.targets ?? []).join(', ') || '--'}</dd>
+                  </div>
                 </dl>
               )}
             </TabPanel>
@@ -241,12 +317,15 @@ export function HomePage() {
                     {type}
                   </button>
                 ))}
-                <input
-                  value={bioFilter}
-                  onChange={(event: ChangeEvent<HTMLInputElement>) => setBioFilter(event.target.value)}
-                  placeholder="Filter by target, gene, UniProt, ChEMBL ID"
-                  className="min-w-[280px] flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
-                />
+                <label className="min-w-[280px] flex-1">
+                  <span className="sr-only">Filter bioactivity rows</span>
+                  <input
+                    value={bioFilter}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) => setBioFilter(event.target.value)}
+                    placeholder="Filter by target, gene, UniProt, ChEMBL ID"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
+                  />
+                </label>
               </div>
 
               {isLoadingBioactivity ? (
@@ -283,7 +362,9 @@ export function HomePage() {
             </TabPanel>
           </TabPanels>
         </TabGroup>
-      </Surface>
+          </section>
+        </>
+      ) : null}
     </AppLayout>
   );
 }
