@@ -1,48 +1,34 @@
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
 const navItems = [
   { to: '/', label: 'Home' },
-  //{ to: '/geneMatch', label: 'Gene Match' },
-  { to: '/geneExpressions', label: 'Gene Expressions' },
-  { to: '/excelViewer', label: 'Data Viewer' },
-  { to: '/ppiInteraction', label: 'PPI Interaction' },
 ];
 
-export function AppLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+export function AppLayout({ children, fullWidth = false }: { title?: string; subtitle?: string; children: ReactNode; fullWidth?: boolean }) {
   return (
-    <div className="min-h-screen px-4 py-6 text-slate-900 sm:py-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="panel-soft sticky top-3 z-30 p-4 sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-600">Drug Repurposing Platform</p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-[1.7rem]">{title}</h1>
-              {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+    <div className="min-h-screen px-4 pb-6 pt-2 text-slate-900 sm:pb-8 sm:pt-3">
+      <div className={`${fullWidth ? 'w-full' : 'mx-auto max-w-7xl'} space-y-6`}>
+        <header className="sticky top-0 z-40 py-1.5 sm:py-2">
+          <nav className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-2xl border border-white/70 bg-white/75 px-2 py-2 shadow-[0_10px_35px_-22px_rgba(15,23,42,0.55)] backdrop-blur-xl">
+            <span className="px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">VascuMap</span>
+            <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80 p-1">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `rounded-lg px-4 py-2 text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-1 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 text-white shadow-sm shadow-cyan-700/30'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-cyan-700'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ))}
             </div>
-            <Link
-              to="/"
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
-            >
-              Back to Home
-            </Link>
-          </div>
-          <nav className="mt-4 flex flex-wrap gap-2">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }: { isActive: boolean }) =>
-                  `rounded-xl px-3 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/30'
-                      : 'border border-slate-300 bg-white hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
           </nav>
         </header>
 
