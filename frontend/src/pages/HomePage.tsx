@@ -1,5 +1,5 @@
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
-import { Activity, ChevronDown, Clipboard, FlaskConical, Loader2, Search, TestTube2 } from 'lucide-react';
+import { Activity, Clipboard, FlaskConical, Loader2, Search, TestTube2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -46,7 +46,6 @@ export function HomePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingBioactivity, setIsLoadingBioactivity] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [showWorkflow, setShowWorkflow] = useState(false);
   const workflowSectionRef = useRef<HTMLElement | null>(null);
 
   const currentInchiKey = pubchemData?.InChIKey ?? '';
@@ -111,10 +110,17 @@ export function HomePage() {
 
     try {
       const compound = searchBySmile ? await getCompoundBySmile(compoundInput.trim()) : await getCompoundByName(compoundInput.trim());
+      if (!compound) {
+        setErrorMessage('Compound not found in PubChem. Please try another name or SMILES string.');
+        return;
+      }
       setPubchemData(compound);
 
       const inchiKey = compound.InChIKey;
-      if (!inchiKey) return;
+      if (!inchiKey) {
+        setErrorMessage('PubChem response is missing InChIKey for this compound.');
+        return;
+      }
 
       const [drugbankPayload, bioactivityPayload] = await Promise.allSettled([
         getDrugBankByInchiKey(inchiKey),
@@ -134,15 +140,7 @@ export function HomePage() {
   }
 
   function revealWorkflow() {
-    if (showWorkflow) {
-      workflowSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
-
-    setShowWorkflow(true);
-    window.setTimeout(() => {
-      workflowSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 0);
+    workflowSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   return (
@@ -170,20 +168,11 @@ export function HomePage() {
               Explore Gene Expressions
             </Link>
           </div>
-          <button
-            type="button"
-            onClick={revealWorkflow}
-            className="mx-auto mt-8 inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white/90 px-4 py-2 text-sm text-slate-700 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
-          >
-            Scroll to workflow
-            <ChevronDown size={16} />
-          </button>
         </div>
       </section>
 
-      {showWorkflow ? (
-        <>
-          <section ref={workflowSectionRef} className="scroll-mt-28 px-2 sm:px-4">
+      <>
+        <section ref={workflowSectionRef} className="mx-auto max-w-5xl scroll-mt-28 px-2 sm:px-4">
         <form className="grid gap-5" onSubmit={handleSearch}>
           <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-4 py-3">
             <p className="text-sm font-semibold text-cyan-900">Start with a compound</p>
@@ -193,7 +182,6 @@ export function HomePage() {
           </div>
 
           <label className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Compound lookup</span>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
@@ -248,7 +236,7 @@ export function HomePage() {
         {errorMessage ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
       </section>
 
-          <section className="px-2 sm:px-4">
+        <section className="mx-auto max-w-5xl px-2 sm:px-4">
         <TabGroup>
           <TabList className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
             {[{ title: 'Chemical Identity', icon: TestTube2 }, { title: 'Curated Pharmacology', icon: Clipboard }, { title: 'Bioactivity', icon: Activity }].map(
@@ -362,9 +350,8 @@ export function HomePage() {
             </TabPanel>
           </TabPanels>
         </TabGroup>
-          </section>
-        </>
-      ) : null}
+        </section>
+      </>
     </AppLayout>
   );
 }
