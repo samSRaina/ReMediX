@@ -9,6 +9,7 @@ let selectedDisease = diseaseParam;
 const tbody = document.getElementById('match-tbody');
 const emptyState = document.getElementById('match-empty');
 const loadingState = document.getElementById('match-loading');
+const matchSummary = document.getElementById('match-summary');
 const geneInfo = document.getElementById('gene-info');
 const errorMsg = document.getElementById('error-message');
 const matchBtn = document.getElementById('match-btn');
@@ -25,6 +26,22 @@ const sheetTbody = document.getElementById('sheet-tbody');
 const sheetLoading = document.getElementById('sheet-loading');
 const sheetEmpty = document.getElementById('sheet-empty');
 const sheetError = document.getElementById('sheet-error');
+
+async function fetchDiseaseSignaturePage(disease, page, pageSize) {
+    const query = new URLSearchParams({
+        disease,
+        page: String(page),
+        page_size: String(pageSize)
+    });
+    const response = await fetch(`/api/diseaseSignature/table?${query.toString()}`);
+
+    if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        throw new Error(detail.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+}
 
 function showEl(el, shouldShow) {
     if (!el) return;
@@ -79,6 +96,9 @@ function clearResultsForDiseaseChange() {
     tbody.innerHTML = '';
     emptyState.style.display = geneList.length === 0 ? 'block' : 'none';
     showEl(loadingState, false);
+    if (matchSummary) {
+        matchSummary.textContent = 'Discarded ambiguous: 0 | Not found: 0';
+    }
     scoreBtn.disabled = true;
     if (scoreContainer) scoreContainer.style.display = 'none';
 }
@@ -134,19 +154,19 @@ async function loadDiseaseSignatureTable() {
     showEl(sheetLoading, true);
 
     try {
-        const query = new URLSearchParams({
-            disease: selectedDisease,
-            page: '1',
-            page_size: String(SIGNATURE_PAGE_SIZE)
-        });
-        const response = await fetch(`/api/diseaseSignature/table?${query.toString()}`);
+        const firstPage = await fetchDiseaseSignaturePage(selectedDisease, 1, SIGNATURE_PAGE_SIZE);
+        const totalPages = firstPage.totalPages || 1;
+        const allRows = [...(firstPage.data || [])];
 
-        if (!response.ok) {
-            const detail = await response.json().catch(() => ({}));
-            throw new Error(detail.detail || `HTTP ${response.status}`);
+        for (let page = 2; page <= totalPages; page += 1) {
+            const nextPage = await fetchDiseaseSignaturePage(selectedDisease, page, SIGNATURE_PAGE_SIZE);
+            allRows.push(...(nextPage.data || []));
         }
 
-        const payload = await response.json();
+        const payload = {
+            headers: firstPage.headers || [],
+            data: allRows
+        };
         const headers = payload.headers || [];
         const data = payload.data || [];
 
@@ -212,8 +232,16 @@ async function runMatch() {
         const json = await res.json();
         loadingState.style.display = 'none';
 
-        if (!json.results || json.results.length === 0) {
-            emptyState.textContent = 'No matching results found.';
+        const rows = Array.isArray(json.results) ? json.results : [];
+
+        if (matchSummary) {
+            const ambiguous = Number.isFinite(json.discarded_ambiguous_count) ? json.discarded_ambiguous_count : 0;
+            const notFound = Number.isFinite(json.not_found_count) ? json.not_found_count : 0;
+            matchSummary.textContent = `Discarded ambiguous: ${ambiguous} | Not found: ${notFound}`;
+        }
+
+        if (rows.length === 0) {
+            emptyState.textContent = 'No match results found.';
             emptyState.style.display = 'block';
             return;
         }
@@ -221,20 +249,45 @@ async function runMatch() {
         scoreBtn.disabled = false;
         geneInfo.textContent = `Gene set: ${geneList.length} gene(s) - Disease: ${json.disease}`;
 
-        json.results.forEach(row => {
+        rows.forEach(row => {
             const tr = document.createElement('tr');
 
             const tdGene = document.createElement('td');
             tdGene.textContent = row.gene;
             tr.appendChild(tdGene);
 
+            const tdClassification = document.createElement('td');
+            const classification = row.classification || row.direction || '-';
+            tdClassification.textContent = classification;
+            if (classification === 'UP') {
+                tdClassification.classList.add('text-success');
+            } else if (classification === 'DOWN') {
+                tdClassification.classList.add('text-danger');
+            } else if (classification === 'AMBIGUOUS') {
+                tdClassification.classList.add('text-warning');
+            }
+            tr.appendChild(tdClassification);
+
+            const tdUpCount = document.createElement('td');
+            tdUpCount.textContent = String(row.up_count ?? 0);
+            tr.appendChild(tdUpCount);
+
+            const tdDownCount = document.createElement('td');
+            tdDownCount.textContent = String(row.down_count ?? 0);
+            tr.appendChild(tdDownCount);
+
+            const tdRatio = document.createElement('td');
+            const ratioValue = Number(row.ratio);
+            tdRatio.textContent = Number.isFinite(ratioValue) ? ratioValue.toFixed(2) : '∞';
+            tr.appendChild(tdRatio);
+
             const tdBeneficial = document.createElement('td');
-            tdBeneficial.textContent = row.beneficial;
+            tdBeneficial.textContent = String(row.beneficial_count ?? 0);
             tdBeneficial.classList.add('text-success');
             tr.appendChild(tdBeneficial);
 
             const tdHarmful = document.createElement('td');
-            tdHarmful.textContent = row.harmful;
+            tdHarmful.textContent = String(row.harmful_count ?? 0);
             tdHarmful.classList.add('text-danger');
             tr.appendChild(tdHarmful);
 
