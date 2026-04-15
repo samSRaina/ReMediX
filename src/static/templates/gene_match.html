@@ -42,18 +42,23 @@
         <h5 class="alert-heading">Re-purposing Score</h5>
         <div class="d-flex justify-content-between">
              <span>Final Score: <strong id="score-value" class="fs-4"></strong></span>
-             <small class="text-muted align-self-center">Based on <span id="score-genes-count">0</span> beneficial gene matches</small>
+             <small class="text-muted align-self-center">Based on <span id="score-genes-count">0</span> beneficial disease genes</small>
         </div>
     </div>
 
     <div class="row g-4">
         <div class="col-12 col-lg-6">
             <h2 class="h6 mb-2">Match Results</h2>
+            <div class="small text-muted mb-2" id="match-summary">Discarded ambiguous: 0 | Not found: 0</div>
             <div class="table-responsive">
                 <table class="table table-sm table-striped table-hover mb-0" id="match-table">
                     <thead class="table-dark sticky-top">
                         <tr>
                             <th>Gene Symbol</th>
+                            <th>Classification</th>
+                            <th>UP Count</th>
+                            <th>DOWN Count</th>
+                            <th>Ratio</th>
                             <th>Beneficial</th>
                             <th>Harmful</th>
                         </tr>
