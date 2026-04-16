@@ -44,14 +44,17 @@ async def get_gene_match(genes: str, disease: str):
         raise HTTPException(status_code=400, detail="No genes provided")
     if not disease or not disease.strip():
         raise HTTPException(status_code=400, detail="Disease parameter is required")
-    return creeds_client.match_gene_set(gene_list, disease)
+    try:
+        return creeds_client.match_gene_set(gene_list, disease)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @router.get("/finalGeneScore")
 async def get_final_gene_score(genes: str, disease: str):
     """
-    Calculate final score based on beneficial matches.
-    Sum 'Final Score' from 'Final Gene Score' sheet for beneficial genes,
-    then divide by predefined DIVISOR.
+    Calculate normalized repurposing score:
+    score = beneficial_sum / (beneficial_sum + harmful_sum)
+    where sums are absolute disease-signature scores from matched genes.
     """
     try:
         return final_gene_score.calculate_final_score(genes, disease)
