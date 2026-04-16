@@ -122,15 +122,13 @@ export function HomePage() {
         return;
       }
 
-      const [drugbankPayload, bioactivityPayload] = await Promise.allSettled([
-        getDrugBankByInchiKey(inchiKey),
-        getBioactivityByInchiKey(inchiKey, bioactivityType),
-      ]);
-
-      if (drugbankPayload.status === 'fulfilled') setDrugbankData(drugbankPayload.value);
-      if (bioactivityPayload.status === 'fulfilled') {
-        setBioactivityRows(bioactivityPayload.value.activities ?? []);
-        setGeneSet(bioactivityPayload.value.gene_set ?? []);
+      // Do not block curated pharmacology behind ChEMBL loading.
+      // Bioactivity is fetched by the currentInchiKey useEffect.
+      try {
+        const drugbankPayload = await getDrugBankByInchiKey(inchiKey);
+        setDrugbankData(drugbankPayload);
+      } catch {
+        // DrugBank can legitimately miss some compounds; keep the rest of the workflow usable.
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Search failed');
@@ -147,11 +145,9 @@ export function HomePage() {
     <AppLayout fullWidth title="VascuMap" subtitle="Map molecular signals to therapeutic direction">
       <section className="flex min-h-[calc(100vh-7rem)] items-center px-2 py-6 text-center sm:px-4 sm:py-10">
         <div className="mx-auto max-w-5xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-600 sm:text-base">Biomedical Discovery Workspace</p>
-          <h2 className="mt-4 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl">VascuMap</h2>
+          <h2 className="mt-4 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl">RepurposeIQ</h2>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-            VascuMap helps researchers connect compounds, target genes, and disease signatures in one place to support faster,
-            evidence-guided drug repurposing decisions.
+            RepurposeIQ scores any drug or compound for repurposing potential against any disease -- integrating 8 databases, 5 analytical steps and a weighted molecular structure.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <button

@@ -3,6 +3,10 @@ import type { ReactNode } from 'react';
 
 const navItems = [
   { to: '/', label: 'Home' },
+  { to: '/about', label: 'About' },
+  { to: '/methodology', label: 'Methodology' },
+  { to: '/documentation', label: 'Documentation' },
+  { to: '/scoringResults', label: 'Scoring Results' },
 ];
 
 export function AppLayout({ children, fullWidth = false }: { title?: string; subtitle?: string; children: ReactNode; fullWidth?: boolean }) {
