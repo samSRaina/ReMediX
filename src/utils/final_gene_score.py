@@ -4,8 +4,6 @@ import openpyxl
 from pathlib import Path
 from ..clients import creeds_client
 
-DIVISOR = 283.4119365
-
 _EXCLUDED_SHEETS = ["Reactome"]
 
 @lru_cache(maxsize=1)
@@ -56,8 +54,9 @@ def calculate_final_score(genes: str, disease: str) -> dict:
     gene_list = [g.strip() for g in genes.split(",") if g.strip()]
 
     match_data = creeds_client.match_gene_set(gene_list, disease)
-    numerator = float(match_data.get("beneficial_disease_score_total", 0.0) or 0.0)
-    denominator = float(match_data.get("disease_signature_total_score", 0.0) or 0.0)
+    numerator = float(match_data.get("beneficial_sum", match_data.get("beneficial_disease_score_total", 0.0)) or 0.0)
+    harmful_sum = float(match_data.get("harmful_sum", 0.0) or 0.0)
+    denominator = numerator + harmful_sum
     genes_found = [
         str(item.get("gene", "")).strip().upper()
         for item in (match_data.get("beneficial_disease_genes") or [])
@@ -70,5 +69,12 @@ def calculate_final_score(genes: str, disease: str) -> dict:
         "score": final_result,
         "numerator": numerator,
         "denominator": denominator,
-        "genes_counted": genes_found
+        "genes_counted": genes_found,
+        "beneficial_sum": numerator,
+        "harmful_sum": harmful_sum,
+        "final_score": final_result,
+        "interpretation": match_data.get("interpretation"),
+        "coverage": match_data.get("coverage", 0.0),
+        "matched_gene_count": match_data.get("matched_gene_count", 0),
+        "input_gene_count": len(gene_list),
     }

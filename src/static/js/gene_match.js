@@ -17,6 +17,8 @@ const scoreBtn = document.getElementById('score-btn');
 const scoreContainer = document.getElementById('score-container');
 const scoreValue = document.getElementById('score-value');
 const scoreGenesCount = document.getElementById('score-genes-count');
+const scoreInterpretation = document.getElementById('score-interpretation');
+const scoreCoverage = document.getElementById('score-coverage');
 const diseaseNameDisplay = document.getElementById('disease-name-display');
 const diseaseInput = document.getElementById('disease-input');
 const diseaseList = document.getElementById('disease-list');
@@ -319,6 +321,15 @@ async function getFinalScore() {
         const data = await res.json();
         scoreValue.textContent = typeof data.score === 'number' ? data.score.toFixed(6) : data.score;
         scoreGenesCount.textContent = data.genes_counted ? data.genes_counted.length : 0;
+        if (scoreInterpretation) {
+            scoreInterpretation.textContent = `Interpretation: ${data.interpretation || '-'}`;
+        }
+        if (scoreCoverage) {
+            const coverageValue = Number(data.coverage);
+            scoreCoverage.textContent = Number.isFinite(coverageValue)
+                ? `Coverage: ${(coverageValue * 100).toFixed(1)}%`
+                : 'Coverage: -';
+        }
         scoreContainer.style.display = 'block';
     } catch (err) {
         console.error(err);
