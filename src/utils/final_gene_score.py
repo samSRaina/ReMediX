@@ -64,17 +64,18 @@ def calculate_final_score(genes: str, disease: str) -> dict:
     ]
 
     final_result = 0.0 if denominator == 0 else numerator / denominator
+    rounded_score = round(final_result, 4)
 
     return {
-        "score": final_result,
-        "numerator": numerator,
-        "denominator": denominator,
+        "score": rounded_score,
+        "numerator": round(numerator, 4),
+        "denominator": round(denominator, 4),
         "genes_counted": genes_found,
-        "beneficial_sum": numerator,
-        "harmful_sum": harmful_sum,
-        "final_score": final_result,
+        "beneficial_sum": round(numerator, 4),
+        "harmful_sum": round(harmful_sum, 4),
+        "final_score": rounded_score,
         "interpretation": match_data.get("interpretation"),
-        "coverage": match_data.get("coverage", 0.0),
+        "coverage": round(float(match_data.get("coverage", 0.0) or 0.0), 4),
         "matched_gene_count": match_data.get("matched_gene_count", 0),
         "input_gene_count": len(gene_list),
     }

@@ -123,9 +123,13 @@ def _compute_ratio(up_count: int, down_count: int) -> float:
 
     if numerator == 0:
         return 0.0
-    if denominator == 0:
-        return float('inf')
-    return float(numerator) / float(denominator)
+    # Keep response JSON-safe and deterministic; avoid Infinity payloads.
+    safe_denominator = denominator if denominator > 0 else 1
+    return float(numerator) / float(safe_denominator)
+
+
+def _round_metric(value: float, digits: int = 4) -> float:
+    return round(float(value), digits)
 
 
 def _to_float(value) -> float | None:
@@ -423,7 +427,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
             'gene': gene,
             'up_count': up_count,
             'down_count': down_count,
-            'ratio': ratio,
+            'ratio': _round_metric(ratio),
             'classification': 'AMBIGUOUS',
             'direction': 'AMBIGUOUS',
             'disease_direction': None,
@@ -468,7 +472,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
         row['beneficial'] = f'beneficial: {beneficial_count}'
         row['harmful'] = f'harmful: {harmful_count}'
         row['beneficial_disease_genes'] = sorted(beneficial_genes)
-        row['beneficial_disease_gene_score'] = gene_beneficial_sum
+        row['beneficial_disease_gene_score'] = _round_metric(gene_beneficial_sum)
 
         if beneficial_count == 0 and harmful_count == 0:
             row['effect'] = 'NO_DISEASE_MATCH'
@@ -477,7 +481,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
 
         matched_gene_count += 1
         row['disease_direction'] = 'MULTI'
-        row['disease_score'] = gene_beneficial_sum + gene_harmful_sum
+        row['disease_score'] = _round_metric(gene_beneficial_sum + gene_harmful_sum)
 
         if beneficial_count > harmful_count:
             row['effect'] = 'BENEFICIAL'
@@ -531,17 +535,17 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
         'not_found_genes': not_found_genes,
         'classified_gene_count': classified_gene_count,
         'matched_gene_count': matched_gene_count,
-        'coverage': coverage,
+        'coverage': _round_metric(coverage),
         'beneficial_gene_count': beneficial_gene_count,
         'harmful_gene_count': harmful_gene_count,
-        'beneficial_sum': beneficial_sum,
-        'harmful_sum': harmful_sum,
-        'final_score': final_score,
+        'beneficial_sum': _round_metric(beneficial_sum),
+        'harmful_sum': _round_metric(harmful_sum),
+        'final_score': _round_metric(final_score),
         'interpretation': _interpret_final_score(final_score),
         'beneficial_disease_genes': beneficial_disease_genes,
         'harmful_disease_genes': harmful_disease_genes,
-        'beneficial_disease_score_total': beneficial_sum,
-        'disease_signature_total_score': disease_signature_total_abs_score,
+        'beneficial_disease_score_total': _round_metric(beneficial_sum),
+        'disease_signature_total_score': _round_metric(disease_signature_total_abs_score),
     }
 
 

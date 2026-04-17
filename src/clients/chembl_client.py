@@ -119,7 +119,7 @@ class ChEMBLClient:
             return []
 
         chembl_id = compound[0].get('molecule_chembl_id')
-        
+
         try:
              # Only fetching necessary fields could be faster, but we need most of them
             activities = list(self.activity.filter(molecule_chembl_id=chembl_id))
@@ -131,11 +131,11 @@ class ChEMBLClient:
         unique_target_ids = list(set(
             act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')
         ))
-        
+
         # Split into chunks of 50 to avoid URL length issues or timeouts with massive lists
         chunk_size = 50
         chunks = [unique_target_ids[i:i + chunk_size] for i in range(0, len(unique_target_ids), chunk_size)]
-        
+
         # Fetch chunks in PARALLEL to speed up loading
         if chunks:
             with ThreadPoolExecutor(max_workers=10) as executor:
