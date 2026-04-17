@@ -1,0 +1,7 @@
+{
+  "oncology": ["cancer", "carcinoma", "tumor", "leukemia", "lymphoma", "melanoma", "sarcoma"],
+  "neurology": ["alzheimer", "parkinson", "dementia", "epilepsy", "multiple sclerosis", "stroke", "neuropathy", "migraine"],
+  "infectious": ["infection", "viral", "bacterial", "fungal", "sepsis", "influenza", "covid", "hepatitis", "hiv", "tuberculosis"],
+  "cardiometabolic": ["hypertension", "heart", "cardio", "coronary", "atherosclerosis", "diabetes", "metabolic", "obesity", "dyslipidemia"],
+  "autoimmune": ["autoimmune", "arthritis", "lupus", "psoriasis", "crohn", "colitis", "celiac", "scleroderma"]
+}

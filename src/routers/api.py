@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional
 from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client, geneCards_client
-from ..utils import final_gene_score
+from ..utils import final_gene_score, repurposing_score
 
 router= APIRouter(prefix="/api")
 
@@ -58,6 +58,28 @@ async def get_final_gene_score(genes: str, disease: str):
     """
     try:
         return final_gene_score.calculate_final_score(genes, disease)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/repurposingScore")
+async def get_repurposing_score(
+    genes: str,
+    disease: str,
+    compound_name: Optional[str] = None,
+    inchikey: Optional[str] = None,
+):
+    """
+    Multi-layer repurposing score that keeps /finalGeneScore in parallel.
+    Layers: alignment, pathway coherence, evidence, safety modifier.
+    """
+    try:
+        return repurposing_score.calculate_repurposing_score(
+            genes=genes,
+            disease=disease,
+            compound_name=compound_name,
+            inchikey=inchikey,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

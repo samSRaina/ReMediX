@@ -1,0 +1,56 @@
+{
+  "default": {
+    "weights": {
+      "alignment": 0.4,
+      "pathway": 0.35,
+      "evidence": 0.25
+    },
+    "safety_tolerance": 0.5,
+    "scale": 1.0
+  },
+  "oncology": {
+    "weights": {
+      "alignment": 0.45,
+      "pathway": 0.3,
+      "evidence": 0.25
+    },
+    "safety_tolerance": 0.6,
+    "scale": 1.0
+  },
+  "neurology": {
+    "weights": {
+      "alignment": 0.35,
+      "pathway": 0.4,
+      "evidence": 0.25
+    },
+    "safety_tolerance": 0.4,
+    "scale": 1.0
+  },
+  "infectious": {
+    "weights": {
+      "alignment": 0.4,
+      "pathway": 0.3,
+      "evidence": 0.3
+    },
+    "safety_tolerance": 0.5,
+    "scale": 1.0
+  },
+  "cardiometabolic": {
+    "weights": {
+      "alignment": 0.35,
+      "pathway": 0.4,
+      "evidence": 0.25
+    },
+    "safety_tolerance": 0.35,
+    "scale": 1.0
+  },
+  "autoimmune": {
+    "weights": {
+      "alignment": 0.4,
+      "pathway": 0.35,
+      "evidence": 0.25
+    },
+    "safety_tolerance": 0.45,
+    "scale": 1.0
+  }
+}
