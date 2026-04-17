@@ -2,11 +2,9 @@ from pathlib import Path
 import json
 from functools import lru_cache
 
-
 DISEASE_SIG = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signatures-v1.0.json'
 SINGLE_DRUG_PERTURBATION = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'single_drug_perturbations-v1.0.json'
 DISEASE_SIGNATURE_TABLE = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signature_table.json'
-RATIO_THRESHOLD = 1.2
 
 
 @lru_cache(maxsize=1)
@@ -62,276 +60,6 @@ def export_disease_signature_table(disease: str, output_path: Path = DISEASE_SIG
     return payload
 
 
-def _normalize_direction(direction: str) -> str | None:
-    normalized = str(direction or '').strip().upper()
-    if normalized in {'UP', 'DOWN'}:
-        return normalized
-    return None
-
-
-def _extract_gene_symbol(gene_row) -> str:
-    """Extract a gene symbol from common CREEDS row shapes."""
-    if isinstance(gene_row, (list, tuple)) and gene_row:
-        return str(gene_row[0] or '').strip().upper()
-    if isinstance(gene_row, dict):
-        return str(gene_row.get('gene', '') or '').strip().upper()
-    return str(gene_row or '').strip().upper()
-
-
-@lru_cache(maxsize=1)
-def _load_single_gene_perturbation_index() -> dict[str, dict[str, int]]:
-    """
-    Build an index of target gene -> aggregated up/down counts across
-    matching single-drug perturbation signatures.
-    """
-    index: dict[str, dict[str, int]] = {}
-
-    for entry in _load_drug_perturbation_dataset():
-        if not isinstance(entry, dict):
-            continue
-
-        up_genes = entry.get('up_genes', []) or []
-        down_genes = entry.get('down_genes', []) or []
-
-        up_count = len(up_genes)
-        down_count = len(down_genes)
-
-        if up_count == 0 and down_count == 0:
-            continue
-
-        candidate_targets = set()
-        for row in up_genes:
-            gene = _extract_gene_symbol(row)
-            if gene:
-                candidate_targets.add(gene)
-        for row in down_genes:
-            gene = _extract_gene_symbol(row)
-            if gene:
-                candidate_targets.add(gene)
-
-        for target in candidate_targets:
-            bucket = index.setdefault(target, {'up_count': 0, 'down_count': 0})
-            bucket['up_count'] += up_count
-            bucket['down_count'] += down_count
-
-    return index
-
-
-def _compute_ratio(up_count: int, down_count: int) -> float:
-    numerator = max(up_count, down_count)
-    denominator = min(up_count, down_count)
-
-    if numerator == 0:
-        return 0.0
-    # Keep response JSON-safe and deterministic; avoid Infinity payloads.
-    safe_denominator = denominator if denominator > 0 else 1
-    return float(numerator) / float(safe_denominator)
-
-
-def _round_metric(value: float, digits: int = 4) -> float:
-    return round(float(value), digits)
-
-
-def _to_float(value) -> float | None:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _build_disease_signature_lookup(disease: str) -> tuple[dict[str, dict], float]:
-    """Return disease gene lookup keyed by symbol and total absolute signature score."""
-    entry = _get_disease_signature_entry(disease)
-    lookup: dict[str, dict] = {}
-    total_abs_score = 0.0
-
-    for direction_key, direction in (('up_genes', 'UP'), ('down_genes', 'DOWN')):
-        for row in entry.get(direction_key, []) or []:
-            if not isinstance(row, (list, tuple)) or len(row) < 2:
-                continue
-
-            gene = str(row[0] or '').strip().upper()
-            score = _to_float(row[1])
-            if not gene or score is None:
-                continue
-
-            abs_score = abs(score)
-            total_abs_score += abs_score
-            lookup[gene] = {
-                'gene': gene,
-                'direction': direction,
-                'score': score,
-                'abs_score': abs_score,
-            }
-
-    return lookup, total_abs_score
-
-
-def _interpret_final_score(score: float) -> str:
-    if score >= 0.60:
-        return 'strong candidate (mostly beneficial)'
-    if score >= 0.40:
-        return 'mixed effect'
-    return 'likely harmful'
-
-
-def _match_perturbations_against_disease(
-    drug_perturbations: list,
-    disease_map: dict[str, float],
-) -> tuple[int, int, set[str]]:
-    """Return beneficial/harmful counts and beneficial disease genes for one target gene."""
-    beneficial = 0
-    harmful = 0
-    beneficial_disease_genes: set[str] = set()
-
-    for drug_gene_entry in drug_perturbations or []:
-        if not isinstance(drug_gene_entry, (list, tuple)) or len(drug_gene_entry) < 2:
-            continue
-
-        disease_gene = str(drug_gene_entry[0]).strip().lower()
-        drug_score = _to_float(drug_gene_entry[1])
-        disease_score = disease_map.get(disease_gene)
-
-        if not disease_gene or drug_score is None or disease_score is None:
-            continue
-
-        if (drug_score < 0 < disease_score) or (drug_score > 0 > disease_score):
-            beneficial += 1
-            beneficial_disease_genes.add(disease_gene.upper())
-        elif (drug_score < 0 and disease_score < 0) or (drug_score > 0 and disease_score > 0):
-            harmful += 1
-
-    return beneficial, harmful, beneficial_disease_genes
-
-
-def _match_perturbations_with_disease_lookup(
-    drug_perturbations: list,
-    disease_lookup: dict[str, dict],
-) -> tuple[int, int, set[str], set[str], float, float]:
-    """Compare downstream perturbation directions to disease directions."""
-    beneficial = 0
-    harmful = 0
-    beneficial_genes: set[str] = set()
-    harmful_genes: set[str] = set()
-    beneficial_sum = 0.0
-    harmful_sum = 0.0
-
-    for drug_gene_entry in drug_perturbations or []:
-        if not isinstance(drug_gene_entry, (list, tuple)) or len(drug_gene_entry) < 2:
-            continue
-
-        gene = str(drug_gene_entry[0] or '').strip().upper()
-        drug_score = _to_float(drug_gene_entry[1])
-        if not gene or drug_score is None or drug_score == 0:
-            continue
-
-        disease_hit = disease_lookup.get(gene)
-        if not disease_hit:
-            continue
-
-        perturb_direction = 'UP' if drug_score > 0 else 'DOWN'
-        disease_direction = disease_hit['direction']
-        disease_abs_score = float(disease_hit['abs_score'])
-
-        if perturb_direction != disease_direction:
-            beneficial += 1
-            beneficial_genes.add(gene)
-            beneficial_sum += disease_abs_score
-        else:
-            harmful += 1
-            harmful_genes.add(gene)
-            harmful_sum += disease_abs_score
-
-    return beneficial, harmful, beneficial_genes, harmful_genes, beneficial_sum, harmful_sum
-
-
-def compute_beneficial_score(
-    drug_targets: list[str],
-    disease_signature: dict[str, str],
-    perturbation_data: dict[str, list[dict[str, str]]],
-    ratio_threshold: float = 1.2,
-) -> dict:
-    """
-    Score a drug by checking if perturbations reverse disease direction.
-
-    Rules:
-    - Use only targets present in perturbation_data.
-    - Opposite direction => beneficial, same direction => harmful.
-    - ratio = beneficial / max(harmful, 1); discard gene when ratio < ratio_threshold.
-    - gene_score = beneficial - harmful for retained genes.
-    - total_score sums positive gene_score values only.
-    """
-    if ratio_threshold <= 0:
-        raise ValueError('ratio_threshold must be > 0')
-
-    disease_map = {
-        str(gene).strip().upper(): direction
-        for gene, raw_direction in (disease_signature or {}).items()
-        if (direction := _normalize_direction(raw_direction)) is not None
-    }
-
-    perturbation_map = {
-        str(target).strip().upper(): (records or [])
-        for target, records in (perturbation_data or {}).items()
-    }
-
-    total_score = 0
-    genes_used = 0
-    genes_filtered_out = 0
-    details = []
-
-    for raw_target in drug_targets or []:
-        target = str(raw_target or '').strip().upper()
-        if not target or target not in perturbation_map:
-            continue
-
-        beneficial_count = 0
-        harmful_count = 0
-
-        for effect in perturbation_map[target]:
-            if not isinstance(effect, dict):
-                continue
-
-            downstream_gene = str(effect.get('gene', '')).strip().upper()
-            perturb_direction = _normalize_direction(effect.get('direction'))
-            if not downstream_gene or not perturb_direction:
-                continue
-
-            disease_direction = disease_map.get(downstream_gene)
-            if not disease_direction:
-                continue
-
-            if perturb_direction != disease_direction:
-                beneficial_count += 1
-            else:
-                harmful_count += 1
-
-        ratio = beneficial_count / max(harmful_count, 1)
-        if ratio < ratio_threshold:
-            genes_filtered_out += 1
-            continue
-
-        gene_score = beneficial_count - harmful_count
-        details.append({
-            'gene': target,
-            'beneficial': beneficial_count,
-            'harmful': harmful_count,
-            'ratio': ratio,
-            'score': gene_score,
-        })
-
-        if gene_score > 0:
-            total_score += gene_score
-            genes_used += 1
-
-    return {
-        'total_score': total_score,
-        'genes_used': genes_used,
-        'genes_filtered_out': genes_filtered_out,
-        'details': details,
-    }
-
-
 class CreedsClient:
     def __init__(self, uniprot_accession_gene: str) :
         self.uniprot_gene = uniprot_accession_gene
@@ -357,196 +85,102 @@ class CreedsClient:
 
         return response_dataset
 
-    def match_genes(self, disease_genes: list, drug_perturbations: list):
-        disease_map = {}
-        for row in disease_genes or []:
-            if not isinstance(row, (list, tuple)) or len(row) < 2:
+    def match_genes(self, disease_genes: list, drug_perturbations: list) -> dict:
+        """
+        Build directional match data for one input gene.
+        - Count matched perturbation rows as up/down based on drug score sign.
+        - Compute ratio = larger_count / smaller_count when both sides are non-zero.
+        - Classify as ambiguous when ratio <= 1.2, else up/down by larger side.
+        """
+        threshold = 1.2
+
+        # Key: disease gene symbol (lowercase), Value: disease score.
+        disease_map = {str(g[0]).strip().lower(): g[1] for g in disease_genes}
+        up_genes = []
+        down_genes = []
+
+        for drug_gene_entry in drug_perturbations:
+            gene_sym_raw = str(drug_gene_entry[0]).strip()
+            gene_sym_key = gene_sym_raw.lower()
+            drug_score = drug_gene_entry[1]
+
+            if gene_sym_key not in disease_map:
                 continue
-            gene = str(row[0]).strip().lower()
-            score = _to_float(row[1])
-            if gene and score is not None:
-                disease_map[gene] = score
 
-        beneficial, harmful, _ = _match_perturbations_against_disease(drug_perturbations, disease_map)
+            if not isinstance(drug_score, (int, float)):
+                continue
 
-        return f"beneficial: {beneficial}", f"harmful: {harmful}"
+            row = {
+                "gene": gene_sym_raw,
+                "drug_score": drug_score,
+                "disease_score": disease_map[gene_sym_key],
+            }
 
+            if drug_score > 0:
+                up_genes.append(row)
+            elif drug_score < 0:
+                down_genes.append(row)
 
-def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
-    """
-    Final repurposing logic:
-    1) Filter/classify target genes by CREEDS perturbation UP/DOWN ratio.
-    2) For non-ambiguous genes, compare drug direction vs disease direction.
-    3) Accumulate beneficial/harmful sums from abs(disease score).
-    """
-    if not disease or not disease.strip():
-        raise ValueError('Disease parameter is required')
+        total_up = len(up_genes)
+        total_down = len(down_genes)
 
-    perturbation_index = _load_single_gene_perturbation_index()
-    disease_lookup, disease_signature_total_abs_score = _build_disease_signature_lookup(disease)
+        if total_up == 0 or total_down == 0:
+            return {
+                "up_genes": up_genes,
+                "down_genes": down_genes,
+                "total_up": total_up,
+                "total_down": total_down,
+                "ratio": None,
+                "direction": None,
+                "threshold": threshold,
+                "error": "Ratio is null because one side has zero matches",
+            }
 
-    seen = set()
-    input_genes = []
-    for raw_gene in gene_list or []:
-        gene = str(raw_gene or '').strip()
-        if not gene:
-            continue
-        key = gene.upper()
-        if key in seen:
-            continue
-        seen.add(key)
-        input_genes.append(gene)
+        larger = max(total_up, total_down)
+        smaller = min(total_up, total_down)
+        ratio = larger / smaller
 
-    results = []
-    up_genes = []
-    down_genes = []
-    discarded_ambiguous = []
-    not_found_genes = []
-    beneficial_disease_gene_map: dict[str, float] = {}
-    harmful_disease_gene_map: dict[str, float] = {}
+        if ratio <= threshold:
+            direction = "ambiguous"
+        else:
+            direction = "up" if total_up > total_down else "down"
 
-    beneficial_sum = 0.0
-    harmful_sum = 0.0
-    classified_gene_count = 0
-    matched_gene_count = 0
-    beneficial_gene_count = 0
-    harmful_gene_count = 0
-
-    for gene in input_genes:
-        key = gene.upper()
-        counts = perturbation_index.get(key)
-        if not counts:
-            not_found_genes.append(gene)
-            continue
-
-        up_count = int(counts.get('up_count', 0) or 0)
-        down_count = int(counts.get('down_count', 0) or 0)
-        ratio = _compute_ratio(up_count, down_count)
-
-        row = {
-            'gene': gene,
-            'up_count': up_count,
-            'down_count': down_count,
-            'ratio': _round_metric(ratio),
-            'classification': 'AMBIGUOUS',
-            'direction': 'AMBIGUOUS',
-            'disease_direction': None,
-            'disease_score': None,
-            'beneficial_count': 0,
-            'harmful_count': 0,
-            'effect': 'SKIPPED',
-            'beneficial': 'beneficial: 0',
-            'harmful': 'harmful: 0',
-            'beneficial_disease_genes': [],
-            'beneficial_disease_gene_score': 0.0,
+        return {
+            "up_genes": up_genes,
+            "down_genes": down_genes,
+            "total_up": total_up,
+            "total_down": total_down,
+            "ratio": ratio,
+            "direction": direction,
+            "threshold": threshold,
+            "error": None,
         }
 
-        if ratio < RATIO_THRESHOLD or up_count == down_count:
-            discarded_ambiguous.append(row)
-            results.append(row)
-            continue
 
-        direction = 'UP' if up_count > down_count else 'DOWN'
-        row['classification'] = direction
-        row['direction'] = direction
-        classified_gene_count += 1
-
-        if direction == 'UP':
-            up_genes.append(row)
-        else:
-            down_genes.append(row)
-
+def match_gene_set(gene_list: list[str], disease: str) -> dict:
+    """
+    For each gene in the list, match disease signatures against
+    single gene perturbations and return directional up/down summaries.
+    Disease must be provided by the user.
+    """
+    disease_signatures = get_disease_signatures(disease)
+    results = []
+    for gene in gene_list:
         client = CreedsClient(gene)
         single_perturbations = client.get_single_drug_perturbations()
-        (
-            beneficial_count,
-            harmful_count,
-            beneficial_genes,
-            harmful_genes,
-            gene_beneficial_sum,
-            gene_harmful_sum,
-        ) = _match_perturbations_with_disease_lookup(single_perturbations, disease_lookup)
-
-        row['beneficial_count'] = beneficial_count
-        row['harmful_count'] = harmful_count
-        row['beneficial'] = f'beneficial: {beneficial_count}'
-        row['harmful'] = f'harmful: {harmful_count}'
-        row['beneficial_disease_genes'] = sorted(beneficial_genes)
-        row['beneficial_disease_gene_score'] = _round_metric(gene_beneficial_sum)
-
-        if beneficial_count == 0 and harmful_count == 0:
-            row['effect'] = 'NO_DISEASE_MATCH'
-            results.append(row)
-            continue
-
-        matched_gene_count += 1
-        row['disease_direction'] = 'MULTI'
-        row['disease_score'] = _round_metric(gene_beneficial_sum + gene_harmful_sum)
-
-        if beneficial_count > harmful_count:
-            row['effect'] = 'BENEFICIAL'
-            beneficial_gene_count += 1
-        elif harmful_count > beneficial_count:
-            row['effect'] = 'HARMFUL'
-            harmful_gene_count += 1
-        else:
-            row['effect'] = 'MIXED'
-
-        beneficial_sum += gene_beneficial_sum
-        harmful_sum += gene_harmful_sum
-
-        for disease_gene in beneficial_genes:
-            disease_score = float(disease_lookup[disease_gene]['abs_score'])
-            existing = beneficial_disease_gene_map.get(disease_gene)
-            if existing is None or disease_score > existing:
-                beneficial_disease_gene_map[disease_gene] = disease_score
-
-        for disease_gene in harmful_genes:
-            disease_score = float(disease_lookup[disease_gene]['abs_score'])
-            existing = harmful_disease_gene_map.get(disease_gene)
-            if existing is None or disease_score > existing:
-                harmful_disease_gene_map[disease_gene] = disease_score
-
-        results.append(row)
-
-    total_score_mass = beneficial_sum + harmful_sum
-    final_score = 0.0 if total_score_mass == 0 else beneficial_sum / total_score_mass
-    coverage = 0.0 if len(input_genes) == 0 else matched_gene_count / len(input_genes)
-
-    beneficial_disease_genes = [
-        {'gene': gene, 'score': score}
-        for gene, score in sorted(beneficial_disease_gene_map.items())
-    ]
-    harmful_disease_genes = [
-        {'gene': gene, 'score': score}
-        for gene, score in sorted(harmful_disease_gene_map.items())
-    ]
-
-    return {
-        'disease': disease,
-        'genes_matched': len(results),
-        'results': results,
-        'input_genes': input_genes,
-        'up_genes': up_genes,
-        'down_genes': down_genes,
-        'discarded_ambiguous_count': len(discarded_ambiguous),
-        'not_found_count': len(not_found_genes),
-        'discarded_ambiguous': discarded_ambiguous,
-        'not_found_genes': not_found_genes,
-        'classified_gene_count': classified_gene_count,
-        'matched_gene_count': matched_gene_count,
-        'coverage': _round_metric(coverage),
-        'beneficial_gene_count': beneficial_gene_count,
-        'harmful_gene_count': harmful_gene_count,
-        'beneficial_sum': _round_metric(beneficial_sum),
-        'harmful_sum': _round_metric(harmful_sum),
-        'final_score': _round_metric(final_score),
-        'interpretation': _interpret_final_score(final_score),
-        'beneficial_disease_genes': beneficial_disease_genes,
-        'harmful_disease_genes': harmful_disease_genes,
-        'beneficial_disease_score_total': _round_metric(beneficial_sum),
-        'disease_signature_total_score': _round_metric(disease_signature_total_abs_score),
-    }
+        directional_data = client.match_genes(disease_signatures, single_perturbations)
+        results.append({
+            "gene": gene,
+            "up_genes": directional_data["up_genes"],
+            "down_genes": directional_data["down_genes"],
+            "total_up": directional_data["total_up"],
+            "total_down": directional_data["total_down"],
+            "ratio": directional_data["ratio"],
+            "direction": directional_data["direction"],
+            "threshold": directional_data["threshold"],
+            "error": directional_data["error"],
+        })
+    return {"disease": disease, "genes_matched": len(results), "results": results}
 
 
 
