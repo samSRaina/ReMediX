@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+import logging
 
 import openpyxl
 import requests
@@ -20,8 +21,15 @@ _EXPECTED_LOCAL_FILES = {
     "genecards_geo_excel": _DATA_ROOT / "geneCards" / "GEO DATA.xlsx",
 }
 
-_DISease_config_path = _CONFIG_ROOT / "disease_class_config.json"
+_DISEASE_CONFIG_PATH = _CONFIG_ROOT / "disease_class_config.json"
 _DISEASE_RULES_PATH = _CONFIG_ROOT / "disease_class_rules.json"
+_LOCAL_EVIDENCE_NORMALIZATION_CAP = 250.0
+_CLINICAL_TRIALS_NORMALIZATION_CAP = 2000.0
+_DRUGBANK_HIGH_RISK_PENALTY = 0.4
+_OPENFDA_BOXED_WARNING_PENALTY = 0.35
+_OPENFDA_WARNING_PENALTY = 0.2
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -36,7 +44,6 @@ def _load_json_file(path: Path) -> dict:
         return {}
 
 
-@lru_cache(maxsize=1)
 def discover_local_data_status() -> dict[str, Any]:
     optional_patterns = ["*reactome*", "*opentarget*", "*geo*", "*disease*"]
     present = {}
@@ -91,7 +98,7 @@ def _load_disease_class_config() -> dict[str, dict]:
             "scale": 1.0,
         }
     }
-    loaded = _load_json_file(_DISease_config_path)
+    loaded = _load_json_file(_DISEASE_CONFIG_PATH)
     if not loaded:
         return defaults
     if "default" not in loaded:
@@ -148,7 +155,7 @@ def _resolve_compound_identity(compound_name: str | None, inchikey: str | None) 
 
     if not resolved_inchikey and compound_name:
         used["pubchem"] = True
-        resolved_inchikey = pubchem_client.PubChemClient().get_inchikey(compound_name)
+        resolved_inchikey = _get_pubchem_client().get_inchikey(compound_name)
 
     return resolved_inchikey, used
 
@@ -173,22 +180,36 @@ def _compute_alignment_layer(genes: list[str], disease: str) -> dict[str, Any]:
     }
 
 
-def _pathway_rows_from_local_excel() -> list[dict[str, Any]]:
+@lru_cache(maxsize=1)
+def _load_main_excel_rows() -> dict[str, list[list[str]]]:
     excel_path = _EXPECTED_LOCAL_FILES["main_excel"]
     if not excel_path.exists():
-        return []
+        return {}
 
     wb = openpyxl.load_workbook(excel_path, data_only=True)
-    rows: list[dict[str, Any]] = []
-
+    sheets: dict[str, list[list[str]]] = {}
     for sheet_name in wb.sheetnames:
-        if "reactome" not in sheet_name.lower() and "target" not in sheet_name.lower():
-            continue
         ws = wb[sheet_name]
+        rows: list[list[str]] = []
         for row in ws.iter_rows(values_only=True):
             compact = [str(cell).strip() for cell in row if cell not in (None, "")]
             if compact:
-                rows.append({"sheet": sheet_name, "cells": compact})
+                rows.append(compact)
+        sheets[sheet_name] = rows
+    return sheets
+
+
+def _pathway_rows_from_local_excel() -> list[dict[str, Any]]:
+    workbook_rows = _load_main_excel_rows()
+    if not workbook_rows:
+        return []
+    rows: list[dict[str, Any]] = []
+
+    for sheet_name, sheet_rows in workbook_rows.items():
+        if "reactome" not in sheet_name.lower() and "target" not in sheet_name.lower():
+            continue
+        for row in sheet_rows:
+            rows.append({"sheet": sheet_name, "cells": row})
 
     return rows
 
@@ -248,30 +269,28 @@ def _fetch_clinical_trials_count(disease: str) -> int | None:
         response.raise_for_status()
         payload = response.json()
         return int(payload.get("StudyFieldsResponse", {}).get("NStudiesFound", 0) or 0)
+    except requests.exceptions.RequestException as exc:
+        logger.warning("ClinicalTrials.gov request failed: %s", exc)
+        return None
     except Exception:
         return None
 
 
 def _local_evidence_hits(disease: str, genes: list[str]) -> int:
-    excel_path = _EXPECTED_LOCAL_FILES["main_excel"]
-    if not excel_path.exists():
+    workbook_rows = _load_main_excel_rows()
+    if not workbook_rows:
         return 0
 
     disease_lower = (disease or "").strip().lower()
     genes_set = {g.upper() for g in genes}
-    wb = openpyxl.load_workbook(excel_path, data_only=True)
     hits = 0
 
-    for sheet_name in wb.sheetnames:
+    for sheet_name, sheet_rows in workbook_rows.items():
         lowered = sheet_name.lower()
         if all(k not in lowered for k in ("target", "evidence", "reactome", "geo")):
             continue
 
-        ws = wb[sheet_name]
-        for row in ws.iter_rows(values_only=True):
-            values = [str(v).strip() for v in row if v not in (None, "")]
-            if not values:
-                continue
+        for values in sheet_rows:
             text = " ".join(values).lower()
             row_genes = {value.upper() for value in values}
             if (disease_lower and disease_lower in text) or (row_genes & genes_set):
@@ -284,8 +303,9 @@ def _compute_evidence_layer(disease: str, genes: list[str]) -> dict[str, Any]:
     local_hits = _local_evidence_hits(disease, genes)
     trials_count = _fetch_clinical_trials_count(disease)
 
-    local_component = min(1.0, local_hits / 250.0)
-    trial_component = 0.0 if trials_count is None else min(1.0, trials_count / 2000.0)
+    # Normalization caps scale heterogeneous evidence counts onto [0, 1] before blending.
+    local_component = min(1.0, local_hits / _LOCAL_EVIDENCE_NORMALIZATION_CAP)
+    trial_component = 0.0 if trials_count is None else min(1.0, trials_count / _CLINICAL_TRIALS_NORMALIZATION_CAP)
 
     score = 0.7 * local_component + 0.3 * trial_component
 
@@ -318,6 +338,9 @@ def _fetch_openfda_warnings(compound_name: str) -> dict[str, Any]:
             "boxed_warning": boxed,
             "warnings_present": warnings,
         }
+    except requests.exceptions.RequestException as exc:
+        logger.warning("openFDA request failed: %s", exc)
+        return {"available": False, "boxed_warning": False, "warnings_present": False}
     except Exception:
         return {"available": False, "boxed_warning": False, "warnings_present": False}
 
@@ -329,20 +352,20 @@ def _compute_safety_layer(compound_name: str | None, inchikey: str | None, safet
     resolved_name = (compound_name or "").strip()
     drugbank_data = None
     if inchikey:
-        drugbank_data = drugbank_client.DrugBankClient().search_drug_by_inchikey(inchikey)
+        drugbank_data = _get_drugbank_client().search_drug_by_inchikey(inchikey)
 
     if drugbank_data:
         groups = [str(g).lower() for g in (drugbank_data.get("groups") or [])]
         if any(g in {"withdrawn", "illicit"} for g in groups):
-            risk += 0.4
+            risk += _DRUGBANK_HIGH_RISK_PENALTY
             notes.append("DrugBank group indicates elevated risk")
 
     openfda = _fetch_openfda_warnings(resolved_name)
     if openfda.get("boxed_warning"):
-        risk += 0.35
+        risk += _OPENFDA_BOXED_WARNING_PENALTY
         notes.append("openFDA boxed warning found")
     elif openfda.get("warnings_present"):
-        risk += 0.2
+        risk += _OPENFDA_WARNING_PENALTY
         notes.append("openFDA warnings section present")
 
     tolerated_risk = max(0.0, risk - (0.2 * safety_tolerance))
@@ -361,9 +384,14 @@ def _chembl_context(inchikey: str | None) -> dict[str, Any]:
     if not inchikey:
         return {"used": False, "target_count": 0, "targets": []}
 
-    client = chembl_client.ChEMBLClient()
-    activities = client.get_by_inchikey(inchikey)
-    targets = sorted({a.get("gene_symbol") for a in activities if a.get("gene_symbol") and a.get("gene_symbol") != "--"})
+    activities = _get_chembl_client().get_by_inchikey(inchikey)
+    targets = sorted(
+        {
+            gene_symbol
+            for a in activities
+            if (gene_symbol := a.get("gene_symbol")) and gene_symbol != "--"
+        }
+    )
     return {
         "used": True,
         "target_count": len(targets),
@@ -440,3 +468,18 @@ def calculate_repurposing_score(genes: str, disease: str, compound_name: str | N
         "data_provenance": provenance,
         "missing_components": sorted(set(missing_components)),
     }
+
+
+@lru_cache(maxsize=1)
+def _get_pubchem_client() -> pubchem_client.PubChemClient:
+    return pubchem_client.PubChemClient()
+
+
+@lru_cache(maxsize=1)
+def _get_drugbank_client() -> drugbank_client.DrugBankClient:
+    return drugbank_client.DrugBankClient()
+
+
+@lru_cache(maxsize=1)
+def _get_chembl_client() -> chembl_client.ChEMBLClient:
+    return chembl_client.ChEMBLClient()

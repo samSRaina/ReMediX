@@ -3,7 +3,7 @@ from typing import Optional
 from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client, geneCards_client
 from ..utils import final_gene_score, repurposing_score
 
-router= APIRouter(prefix="/api")
+router = APIRouter(prefix="/api")
 
 # PubChem database endpoints
 @router.get("/compound/name/{name}/properties")
