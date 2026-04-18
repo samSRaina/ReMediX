@@ -3,6 +3,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
+_PRIMARY_TARGET_TYPES = {
+    'SINGLE PROTEIN': 1.0,
+    'PROTEIN COMPLEX': 0.75,
+    'PROTEIN COMPLEX GROUP': 0.6,
+    'PROTEIN FAMILY': 0.5,
+}
+
 # Lazy import - ChEMBL client will be loaded on first use
 _new_client = None
 
@@ -144,6 +151,32 @@ class ChEMBLClient:
         self._activities_cache[inchi_key] = activities
         return activities
 
+    def _to_float(self, value):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _activity_confidence_weight(self, activity: dict, target_data: dict) -> float:
+        """Estimate confidence that an activity reflects a primary mechanism target."""
+        weight = 0.0
+        target_type = (target_data.get('target_type') or '').strip().upper()
+        weight += _PRIMARY_TARGET_TYPES.get(target_type, 0.2)
+
+        standard_value = self._to_float(activity.get('standard_value'))
+        if standard_value is not None and standard_value > 0:
+            if standard_value <= 100:
+                weight += 1.0
+            elif standard_value <= 1000:
+                weight += 0.6
+            elif standard_value <= 10000:
+                weight += 0.3
+
+        if self._extract_uniprot_id(target_data) != '--':
+            weight += 0.3
+
+        return weight
+
     def _enrich_activity(self, act: dict, include_target_details: bool = False) -> dict:
         """Build an enriched activity dict from a raw ChEMBL activity record."""
         target_chembl_id = act.get('target_chembl_id')
@@ -192,11 +225,12 @@ class ChEMBLClient:
 
     def get_gene_set(self, inchi_key: str) -> set:
         """
-        Collect all valid gene symbols for IC50, AC50, and Ki.
-        Uses the same cached activities — no extra API calls.
+        Collect mechanism-relevant gene symbols for IC50/AC50/Ki.
+        Prioritizes high-confidence target classes and stronger activity values.
         """
         activities = self._fetch_all_activities(inchi_key)
-        gene_set = set()
+        gene_evidence = {}
+        fallback_gene_set = set()
         for act in activities:
             if act.get('standard_type') in ("IC50", "AC50", "Ki"):
                 target_chembl_id = act.get('target_chembl_id')
@@ -204,8 +238,17 @@ class ChEMBLClient:
                     target_info = self._get_target_cached(target_chembl_id)
                     gene = self._extract_gene_symbol(target_info) if target_info else '--'
                     if gene and gene != '--':
-                        gene_set.add(gene)
-        return gene_set
+                        fallback_gene_set.add(gene)
+                        confidence_weight = self._activity_confidence_weight(act, target_info or {})
+                        gene_evidence[gene] = gene_evidence.get(gene, 0.0) + confidence_weight
+
+        prioritized = {
+            gene for gene, score in gene_evidence.items()
+            if score >= 1.5
+        }
+        if prioritized:
+            return prioritized
+        return fallback_gene_set
 
     def get_target_data(self, target_chembl_id: str) -> dict:
         """

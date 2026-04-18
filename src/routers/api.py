@@ -161,4 +161,13 @@ async def get_available_diseases():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load diseases: {str(e)}")
 
+
+@router.get("/calibration/benchmark")
+async def run_scoring_benchmark():
+    """Run configured benchmark cases to validate score behavior on known positives/negatives."""
+    try:
+        return creeds_client.run_calibration_benchmark()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to run calibration benchmark: {str(exc)}") from exc
+
 # ── helpers ────────────────────────────────────────────────────

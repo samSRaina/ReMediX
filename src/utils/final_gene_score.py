@@ -76,6 +76,11 @@ def calculate_final_score(genes: str, disease: str) -> dict:
         "final_score": rounded_score,
         "interpretation": match_data.get("interpretation"),
         "coverage": round(float(match_data.get("coverage", 0.0) or 0.0), 4),
+        "confidence": round(float(match_data.get("confidence", 0.0) or 0.0), 4),
+        "disease_evidence_coverage": round(float(match_data.get("disease_evidence_coverage", 0.0) or 0.0), 4),
+        "uncertain_fraction": round(float(match_data.get("uncertain_fraction", 0.0) or 0.0), 4),
+        "dominant_low_score_reason": match_data.get("dominant_low_score_reason"),
+        "low_score_reason_breakdown": match_data.get("low_score_reason_breakdown", {}),
         "matched_gene_count": match_data.get("matched_gene_count", 0),
         "input_gene_count": len(gene_list),
     }

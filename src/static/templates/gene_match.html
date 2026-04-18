@@ -46,14 +46,20 @@
         </div>
         <div class="small text-muted mt-2">
             <span id="score-interpretation">Interpretation: -</span> |
-            <span id="score-coverage">Coverage: -</span>
+            <span id="score-coverage">Coverage: -</span> |
+            <span id="score-confidence">Confidence: -</span> |
+            <span id="score-evidence-coverage">Disease evidence coverage: -</span> |
+            <span id="score-uncertain-fraction">Uncertain fraction: -</span>
+        </div>
+        <div class="small text-muted mt-1">
+            <span id="score-low-reason">Dominant low-score reason: -</span>
         </div>
     </div>
 
     <div class="row g-4">
         <div class="col-12 col-lg-6">
             <h2 class="h6 mb-2">Match Results</h2>
-            <div class="small text-muted mb-2" id="match-summary">Discarded ambiguous: 0 | Not found: 0 | Disease beneficial: 0 | Disease harmful: 0</div>
+            <div class="small text-muted mb-2" id="match-summary">Low-confidence targets: 0 | Not found: 0 | No disease overlap: 0 | Disease beneficial: 0 | Disease harmful: 0 | Disease uncertain: 0</div>
             <div class="table-responsive">
                 <table class="table table-sm table-striped table-hover mb-0" id="match-table">
                     <thead class="table-dark sticky-top">
@@ -63,7 +69,9 @@
                             <th>UP Count</th>
                             <th>DOWN Count</th>
                             <th>Ratio</th>
+                            <th>Target Weight</th>
                             <th>Common Disease Genes</th>
+                            <th>Effect</th>
                         </tr>
                     </thead>
                     <tbody id="match-tbody"></tbody>

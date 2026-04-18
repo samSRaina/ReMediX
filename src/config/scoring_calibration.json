@@ -1,0 +1,36 @@
+{
+  "interpretation_thresholds": {
+    "strong_candidate_min": 0.58,
+    "mixed_effect_min": 0.36
+  },
+  "benchmark_cases": [
+    {
+      "name": "sildenafil_pulmonary_hypertension_positive",
+      "disease": "pulmonary hypertension",
+      "genes": ["PDE5A", "PDE6A", "PDE6B", "NOS3"],
+      "expected": "positive",
+      "min_expected_score": 0.5
+    },
+    {
+      "name": "warfarin_pulmonary_hypertension_negative",
+      "disease": "pulmonary hypertension",
+      "genes": ["VKORC1", "F2"],
+      "expected": "negative",
+      "max_expected_score": 0.45
+    },
+    {
+      "name": "metformin_type2_diabetes_positive",
+      "disease": "type 2 diabetes mellitus",
+      "genes": ["PRKAA1", "PRKAA2", "SLC22A1", "GCG"],
+      "expected": "positive",
+      "min_expected_score": 0.5
+    },
+    {
+      "name": "atorvastatin_type2_diabetes_negative",
+      "disease": "type 2 diabetes mellitus",
+      "genes": ["HMGCR", "LDLR"],
+      "expected": "negative",
+      "max_expected_score": 0.45
+    }
+  ]
+}
