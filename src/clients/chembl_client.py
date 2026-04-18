@@ -22,7 +22,8 @@ class ChEMBLClient:
     # Class-level caches for persistence across requests
     _target_cache = {}
     _activities_cache = {}
-    _molecule_batch_size = 20
+    _MOLECULE_BATCH_SIZE = 20
+    _INCHIKEY_CONNECTIVITY_LENGTH = 14
 
     def __init__(self):
         self._molecule = None
@@ -122,7 +123,7 @@ class ChEMBLClient:
             # Fallback: resolve by 14-character connectivity block to support
             # compounds where stereochemistry/protonation differs across databases.
             connectivity = normalized_inchi_key.split('-')[0]
-            if len(connectivity) == 14:
+            if len(connectivity) == self._INCHIKEY_CONNECTIVITY_LENGTH:
                 try:
                     compound = list(
                         self.molecule.filter(
@@ -150,14 +151,17 @@ class ChEMBLClient:
             return []
 
         activities = []
-        chunk_size = self._molecule_batch_size
+        chunk_size = self._MOLECULE_BATCH_SIZE
         chunks = [chembl_ids[i:i + chunk_size] for i in range(0, len(chembl_ids), chunk_size)]
-        for chunk in chunks:
+        for chunk_index, chunk in enumerate(chunks, start=1):
             try:
                 # Only fetching necessary fields could be faster, but we need most of them
                 activities.extend(list(self.activity.filter(molecule_chembl_id__in=chunk)))
             except Exception as e:
-                logger.error(f"Error fetching activities for molecule ids {chunk}: {e}")
+                logger.error(
+                    f"Error fetching activities for molecule id chunk {chunk_index}/{len(chunks)} "
+                    f"(size {len(chunk)}): {e}"
+                )
                 continue
 
         # Batch-fetch ALL targets referenced by these activities in ONE call
