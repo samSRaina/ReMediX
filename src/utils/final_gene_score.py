@@ -57,11 +57,11 @@ def calculate_final_score(genes: str, disease: str) -> dict:
     numerator = float(match_data.get("beneficial_sum", match_data.get("beneficial_disease_score_total", 0.0)) or 0.0)
     harmful_sum = float(match_data.get("harmful_sum", 0.0) or 0.0)
     denominator = numerator + harmful_sum
-    genes_found = [
+    genes_found = sorted({
         str(item.get("gene", "")).strip().upper()
-        for item in (match_data.get("beneficial_disease_genes") or [])
+        for item in (match_data.get("beneficial_disease_genes") or []) + (match_data.get("harmful_disease_genes") or [])
         if str(item.get("gene", "")).strip()
-    ]
+    })
 
     final_result = 0.0 if denominator == 0 else numerator / denominator
     rounded_score = round(final_result, 4)
