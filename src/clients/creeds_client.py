@@ -440,6 +440,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
             'beneficial': 'beneficial: 0',
             'harmful': 'harmful: 0',
             'beneficial_disease_genes': [],
+            'harmful_disease_genes': [],
             'beneficial_disease_gene_score': 0.0,
         }
 
@@ -477,6 +478,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
             row['beneficial'] = 'beneficial: 1'
             row['harmful'] = 'harmful: 0'
             row['beneficial_disease_genes'] = [key]
+            row['harmful_disease_genes'] = []
             row['beneficial_disease_gene_score'] = _round_metric(disease_abs_score)
             beneficial_gene_count += 1
             beneficial_sum += disease_abs_score
@@ -487,6 +489,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
             row['harmful_count'] = 1
             row['beneficial'] = 'beneficial: 0'
             row['harmful'] = 'harmful: 1'
+            row['harmful_disease_genes'] = [key]
             row['beneficial_disease_gene_score'] = 0.0
             harmful_gene_count += 1
             harmful_sum += disease_abs_score
