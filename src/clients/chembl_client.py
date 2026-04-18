@@ -104,28 +104,60 @@ class ChEMBLClient:
         Fetch the molecule + ALL its activities in a single round-trip.
         Results are cached on the instance so repeated calls are free.
         """
-        if inchi_key in self._activities_cache:
-            return self._activities_cache[inchi_key]
+        normalized_inchi_key = str(inchi_key or "").strip().upper()
+        if not normalized_inchi_key:
+            return []
+        if normalized_inchi_key in self._activities_cache:
+            return self._activities_cache[normalized_inchi_key]
 
         try:
-             # Optimization: Limit fields if possible, but the client might not support it easily
-            compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key))
+            # Optimization: Limit fields if possible, but the client might not support it easily
+            compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=normalized_inchi_key))
         except Exception as e:
-            logger.error(f"Error fetching molecule for {inchi_key}: {e}")
+            logger.error(f"Error fetching molecule for {normalized_inchi_key}: {e}")
             return []
 
         if not compound:
-            self._activities_cache[inchi_key] = []
+            # Fallback: resolve by 14-character connectivity block to support
+            # compounds where stereochemistry/protonation differs across databases.
+            connectivity = normalized_inchi_key.split('-')[0]
+            if len(connectivity) == 14:
+                try:
+                    compound = list(
+                        self.molecule.filter(
+                            molecule_structures__standard_inchi_key__startswith=f"{connectivity}-"
+                        )
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Error fetching molecule by InChIKey connectivity for {normalized_inchi_key}: {e}"
+                    )
+
+        if not compound:
+            self._activities_cache[normalized_inchi_key] = []
             return []
 
-        chembl_id = compound[0].get('molecule_chembl_id')
+        chembl_ids = sorted(
+            set(
+                c.get('molecule_chembl_id')
+                for c in compound
+                if c.get('molecule_chembl_id')
+            )
+        )
+        if not chembl_ids:
+            self._activities_cache[normalized_inchi_key] = []
+            return []
 
-        try:
-             # Only fetching necessary fields could be faster, but we need most of them
-            activities = list(self.activity.filter(molecule_chembl_id=chembl_id))
-        except Exception as e:
-             logger.error(f"Error fetching activities for {chembl_id}: {e}")
-             return []
+        activities = []
+        chunk_size = 20
+        chunks = [chembl_ids[i:i + chunk_size] for i in range(0, len(chembl_ids), chunk_size)]
+        for chunk in chunks:
+            try:
+                # Only fetching necessary fields could be faster, but we need most of them
+                activities.extend(list(self.activity.filter(molecule_chembl_id__in=chunk)))
+            except Exception as e:
+                logger.error(f"Error fetching activities for molecule ids {chunk}: {e}")
+                return []
 
         # Batch-fetch ALL targets referenced by these activities in ONE call
         unique_target_ids = list(set(
@@ -141,7 +173,7 @@ class ChEMBLClient:
             with ThreadPoolExecutor(max_workers=10) as executor:
                 executor.map(self._batch_fetch_targets, chunks)
 
-        self._activities_cache[inchi_key] = activities
+        self._activities_cache[normalized_inchi_key] = activities
         return activities
 
     def _enrich_activity(self, act: dict, include_target_details: bool = False) -> dict:
