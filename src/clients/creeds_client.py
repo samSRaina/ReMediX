@@ -100,14 +100,14 @@ def _load_single_gene_perturbation_index() -> dict[str, dict[str, int]]:
             continue
 
         up_genes = {
-            _extract_gene_symbol(row)
+            symbol
             for row in (entry.get('up_genes', []) or [])
-            if _extract_gene_symbol(row)
+            if (symbol := _extract_gene_symbol(row))
         }
         down_genes = {
-            _extract_gene_symbol(row)
+            symbol
             for row in (entry.get('down_genes', []) or [])
-            if _extract_gene_symbol(row)
+            if (symbol := _extract_gene_symbol(row))
         }
 
         for gene in up_genes:

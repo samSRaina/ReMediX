@@ -23,6 +23,7 @@
         }
 
         function end(activeController) {
+            // Ignore stale completions from superseded requests.
             if (activeController && controller !== activeController) {
                 return;
             }

@@ -55,6 +55,8 @@ class JobManager:
                 record.updated_at = self._now_iso()
 
             try:
+                if record.cancel_event.is_set():
+                    raise OperationCancelledError("Job cancelled before execution")
                 output = func(record.cancel_event.is_set)
                 with self._lock:
                     if record.cancel_event.is_set():
@@ -97,4 +99,3 @@ class JobManager:
                 record.status = "cancelling"
                 record.updated_at = self._now_iso()
             return record
-
