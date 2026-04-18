@@ -2,7 +2,9 @@ from functools import lru_cache
 import math
 import openpyxl
 from pathlib import Path
+from typing import Callable
 from ..clients import creeds_client
+from .cancellation import OperationCancelledError
 
 _EXCLUDED_SHEETS = ["Reactome"]
 
@@ -40,7 +42,11 @@ def load_excel_sheets() -> dict[str, list[list]]:
     return result
 
 
-def calculate_final_score(genes: str, disease: str) -> dict:
+def calculate_final_score(
+    genes: str,
+    disease: str,
+    should_cancel: Callable[[], bool] | None = None,
+) -> dict:
     """
     Calculate final score from disease signature scores:
     - numerator: sum of beneficially matched disease-signature gene scores
@@ -53,7 +59,10 @@ def calculate_final_score(genes: str, disease: str) -> dict:
 
     gene_list = [g.strip() for g in genes.split(",") if g.strip()]
 
-    match_data = creeds_client.match_gene_set(gene_list, disease)
+    if should_cancel and should_cancel():
+        raise OperationCancelledError("Final score job was cancelled")
+
+    match_data = creeds_client.match_gene_set(gene_list, disease, should_cancel=should_cancel)
     numerator = float(match_data.get("beneficial_sum", match_data.get("beneficial_disease_score_total", 0.0)) or 0.0)
     harmful_sum = float(match_data.get("harmful_sum", 0.0) or 0.0)
     denominator = numerator + harmful_sum

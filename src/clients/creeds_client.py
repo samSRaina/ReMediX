@@ -1,6 +1,8 @@
 from pathlib import Path
 import json
 from functools import lru_cache
+from typing import Callable
+from ..utils.cancellation import OperationCancelledError
 
 
 DISEASE_SIG = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signatures-v1.0.json'
@@ -374,7 +376,11 @@ class CreedsClient:
         return f"beneficial: {beneficial}", f"harmful: {harmful}"
 
 
-def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
+def match_gene_set(
+    gene_list: list[str],
+    disease: str | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+) -> dict:
     """
     Final repurposing logic:
     1) Filter/classify target genes by CREEDS perturbation UP/DOWN ratio.
@@ -415,6 +421,8 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
     harmful_gene_count = 0
 
     for gene in input_genes:
+        if should_cancel and should_cancel():
+            raise OperationCancelledError("Match job was cancelled")
         key = gene.upper()
         counts = perturbation_index.get(key)
         if not counts:

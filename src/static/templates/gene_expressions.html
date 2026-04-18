@@ -21,6 +21,9 @@
         <div class="col-md-3 d-flex align-items-end">
             <button id="clear-btn" class="btn btn-outline-secondary w-100">Clear</button>
         </div>
+        <div class="col-md-12 d-flex justify-content-end mt-2">
+            <button id="gene-stop-btn" class="btn btn-outline-danger btn-sm" type="button" disabled>Stop Loading</button>
+        </div>
     </div>
 
     <!-- Info Bar -->
@@ -67,4 +70,3 @@
 {% block extra_scripts %}
     <script src="{{ url_for('static', path='js/gene_expressions.js') }}"></script>
 {% endblock %}
-

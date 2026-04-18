@@ -1,9 +1,72 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from typing import Optional
+
 from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client, geneCards_client
 from ..utils import final_gene_score
+from ..utils.job_manager import JobManager
 
-router= APIRouter(prefix="/api")
+
+router = APIRouter(prefix="/api")
+job_manager = JobManager(max_workers=4)
+
+
+class MatchJobRequest(BaseModel):
+    genes: list[str] | str
+    disease: str
+
+
+class FinalScoreJobRequest(BaseModel):
+    genes: list[str] | str
+    disease: str
+
+
+class DiseaseSignatureJobRequest(BaseModel):
+    disease: str
+    page: int = 1
+    page_size: int = 100
+
+
+def _normalize_genes(raw_genes: list[str] | str) -> list[str]:
+    if isinstance(raw_genes, str):
+        genes = [g.strip() for g in raw_genes.split(",") if g.strip()]
+    else:
+        genes = [str(g).strip() for g in raw_genes if str(g).strip()]
+
+    if not genes:
+        raise HTTPException(status_code=400, detail="No genes provided")
+    return genes
+
+
+def _serialize_job(record) -> dict:
+    return {
+        "job_id": record.job_id,
+        "status": record.status,
+        "created_at": record.created_at,
+        "updated_at": record.updated_at,
+        "error": record.error,
+    }
+
+
+def _build_disease_signature_page(disease: str, page: int, page_size: int) -> dict:
+    payload = creeds_client.build_disease_signature_table(disease)
+    rows = payload.get("rows", [])
+    headers = payload.get("headers", [])
+    total = len(rows)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * page_size
+    end = start + page_size
+    return {
+        "disease": payload.get("disease", disease),
+        "headers": headers,
+        "data": rows[start:end],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": total_pages,
+    }
+
 
 # PubChem database endpoints
 @router.get("/compound/name/{name}/properties")
@@ -19,10 +82,11 @@ async def get_properties_by_smile_api(smile: str):
 # DrugBank database endpoints
 @router.get("/drugbank/inchikey/{inchikey}/properties")
 async def get_properties_by_inchikey(inchikey: str):
-    result = drugbank_client.DrugBankClient()
-    if result is None:
+    client = drugbank_client.DrugBankClient()
+    result = client.search_drug_by_inchikey(inchikey)
+    if not result:
         raise HTTPException(status_code=404, detail=f"Drug '{inchikey}' not found in DrugBank database")
-    return result.search_drug_by_inchikey(inchikey)
+    return result
 
 
 # ChEMBL database endpoints
@@ -35,13 +99,11 @@ async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str
     gene_set = chembl.get_gene_set(inchikey)
     return {"activities": result, "gene_set": sorted(gene_set)}
 
-# CREEDS match endpoint — matches each gene against disease signatures
+
+# Backward-compatible synchronous endpoints
 @router.get("/match")
 async def get_gene_match(genes: str, disease: str):
-    """genes = comma-separated gene symbols, disease = target disease name (required)"""
-    gene_list = [g.strip() for g in genes.split(",") if g.strip()]
-    if not gene_list:
-        raise HTTPException(status_code=400, detail="No genes provided")
+    gene_list = _normalize_genes(genes)
     if not disease or not disease.strip():
         raise HTTPException(status_code=400, detail="Disease parameter is required")
     try:
@@ -49,32 +111,110 @@ async def get_gene_match(genes: str, disease: str):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
 @router.get("/finalGeneScore")
 async def get_final_gene_score(genes: str, disease: str):
-    """
-    Calculate normalized repurposing score:
-    score = beneficial_sum / (beneficial_sum + harmful_sum)
-    where sums are absolute disease-signature scores from matched genes.
-    """
     try:
         return final_gene_score.calculate_final_score(genes, disease)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/chembl/inchikey/{inchkey}/bioactivity/{target_chembl_id}/target")
-async def get_target_data(target_chembl_id: str):
+@router.post("/jobs/match")
+async def create_match_job(payload: MatchJobRequest):
+    gene_list = _normalize_genes(payload.genes)
+    disease = payload.disease.strip() if payload.disease else ""
+    if not disease:
+        raise HTTPException(status_code=400, detail="Disease parameter is required")
+
+    record = job_manager.create_job(
+        lambda should_cancel: creeds_client.match_gene_set(
+            gene_list,
+            disease,
+            should_cancel=should_cancel,
+        )
+    )
+    return _serialize_job(record)
+
+
+@router.post("/jobs/finalGeneScore")
+async def create_final_score_job(payload: FinalScoreJobRequest):
+    gene_list = _normalize_genes(payload.genes)
+    disease = payload.disease.strip() if payload.disease else ""
+    if not disease:
+        raise HTTPException(status_code=400, detail="Disease parameter is required")
+
+    record = job_manager.create_job(
+        lambda should_cancel: final_gene_score.calculate_final_score(
+            ",".join(gene_list),
+            disease,
+            should_cancel=should_cancel,
+        )
+    )
+    return _serialize_job(record)
+
+
+@router.post("/jobs/diseaseSignatureTable")
+async def create_disease_signature_job(payload: DiseaseSignatureJobRequest):
+    disease = payload.disease.strip() if payload.disease else ""
+    if not disease:
+        raise HTTPException(status_code=400, detail="Disease parameter is required")
+
+    page = max(1, payload.page)
+    page_size = max(1, min(payload.page_size, 500))
+
+    record = job_manager.create_job(
+        lambda _: _build_disease_signature_page(disease, page, page_size)
+    )
+    return _serialize_job(record)
+
+
+@router.get("/jobs/{job_id}")
+async def get_job_status(job_id: str):
+    record = job_manager.get_job(job_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    return _serialize_job(record)
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    record = job_manager.cancel_job(job_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    return _serialize_job(record)
+
+
+@router.get("/jobs/{job_id}/result")
+async def get_job_result(job_id: str):
+    record = job_manager.get_job(job_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+    if record.status == "completed":
+        return {"job_id": job_id, "status": record.status, "result": record.result}
+    if record.status == "failed":
+        raise HTTPException(status_code=422, detail=record.error or "Job failed")
+    if record.status in {"cancelled", "cancelling"}:
+        raise HTTPException(status_code=409, detail="Job was cancelled")
+    raise HTTPException(status_code=202, detail="Job is not completed yet")
+
+
+@router.get("/chembl/inchikey/{inchikey}/bioactivity/{target_chembl_id}/target")
+async def get_target_data(inchikey: str, target_chembl_id: str):
+    _ = inchikey  # kept for route compatibility and future validation
     result = chembl_client.ChEMBLClient().get_target_data(target_chembl_id)
     if not result:
-        raise HTTPException(status_code =404, detail=f"No target data found for {target_chembl_id}")
+        raise HTTPException(status_code=404, detail=f"No target data found for {target_chembl_id}")
     return result
+
 
 @router.get("/geneAnalysis/accession/{accession_id}")
 async def get_gene_analysis(accession_id: str, disease: str):
     disease_signatures = creeds_client.get_disease_signatures(disease)
     accession_object = creeds_client.CreedsClient(accession_id)
     single_gene_perturbations = accession_object.get_single_drug_perturbations()
-    return accession_object.match_genes(disease_signatures, single_gene_perturbations )
+    return accession_object.match_genes(disease_signatures, single_gene_perturbations)
+
 
 @router.get("/geneExpressions")
 async def get_gene_expressions(page: int = 1, page_size: int = 50, search: Optional[str] = None):
@@ -83,28 +223,26 @@ async def get_gene_expressions(page: int = 1, page_size: int = 50, search: Optio
 
 @router.get("/excelData/meta")
 async def get_excel_meta():
-    """Return sheet names, column headers and row counts (lightweight)."""
     sheets = final_gene_score.load_excel_sheets()
     meta = {}
     for name, rows in sheets.items():
         headers = rows[0] if rows else []
         meta[name] = {
             "headers": headers,
-            "totalRows": max(0, len(rows) - 1),   # exclude header
+            "totalRows": max(0, len(rows) - 1),
         }
     return {"sheetNames": list(sheets.keys()), "meta": meta}
 
 
 @router.get("/excelData/sheet")
 async def get_excel_sheet(name: str, page: int = 1, page_size: int = 100):
-    """Return a paginated slice of one sheet's data rows."""
     sheets = final_gene_score.load_excel_sheets()
     if name not in sheets:
         raise HTTPException(status_code=404, detail=f"Sheet '{name}' not found")
 
     all_rows = sheets[name]
     headers = all_rows[0] if all_rows else []
-    data_rows = all_rows[1:]                      # everything after header
+    data_rows = all_rows[1:]
 
     total = len(data_rows)
     total_pages = max(1, (total + page_size - 1) // page_size)
@@ -124,41 +262,22 @@ async def get_excel_sheet(name: str, page: int = 1, page_size: int = 100):
 
 @router.get("/diseaseSignature/table")
 async def get_disease_signature_table(disease: str, page: int = 1, page_size: int = 100):
-    """Return a paginated disease signature table. Disease parameter is required."""
     if not disease or not disease.strip():
         raise HTTPException(status_code=400, detail="Disease parameter is required")
     try:
-        payload = creeds_client.export_disease_signature_table(disease)
+        return _build_disease_signature_page(disease, page, page_size)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    rows = payload.get("rows", [])
-    headers = payload.get("headers", [])
-    total = len(rows)
-    total_pages = max(1, (total + page_size - 1) // page_size)
-    page = max(1, min(page, total_pages))
-    start = (page - 1) * page_size
-    end = start + page_size
-
-    return {
-        "disease": payload.get("disease", disease),
-        "headers": headers,
-        "data": rows[start:end],
-        "page": page,
-        "pageSize": page_size,
-        "total": total,
-        "totalPages": total_pages,
-    }
 
 
 @router.get("/diseases")
 async def get_available_diseases():
-    """Return list of available diseases in CREEDS dataset."""
     try:
         dataset = creeds_client._load_disease_signature_dataset()
-        diseases = sorted(set(str(entry.get('disease_name', '')).strip() for entry in dataset if entry.get('disease_name')))
+        diseases = sorted(
+            set(str(entry.get("disease_name", "")).strip() for entry in dataset if entry.get("disease_name"))
+        )
         return {"diseases": diseases}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load diseases: {str(e)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to load diseases: {str(exc)}")
 
-# ── helpers ────────────────────────────────────────────────────

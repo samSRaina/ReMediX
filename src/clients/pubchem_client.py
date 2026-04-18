@@ -25,14 +25,17 @@ class PubChemClient:
 
     def _fetch(self, url: str) -> dict | None:
         """Reusable method to fetch data from PubChem API."""
-        try:
-            r = requests.get(url, timeout=10)
-            r.raise_for_status()
-            return r.json()["PropertyTable"]["Properties"][0]
-        except requests.RequestException as e:
-            status = getattr(e.response, 'status_code', None)
-            logger.error(f"PubChem API error: {status or e}")
-            return None
+        last_error = None
+        for _ in range(2):
+            try:
+                r = requests.get(url, timeout=(5, 15))
+                r.raise_for_status()
+                return r.json()["PropertyTable"]["Properties"][0]
+            except requests.RequestException as e:
+                last_error = e
+        status = getattr(last_error.response, 'status_code', None) if last_error else None
+        logger.error(f"PubChem API error: {status or last_error}")
+        return None
 
     def search_by_name(self, name: str) -> dict | None:
         url = f"{self.BASE_URL}/name/{name}/property/{self.props_string}/JSON"

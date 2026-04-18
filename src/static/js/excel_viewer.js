@@ -6,6 +6,11 @@ const loadingContainer = document.getElementById('loading-container');
 const errorContainer   = document.getElementById('error-container');
 const tabsNav          = document.getElementById('excel-tabs-nav');
 const tabsContent      = document.getElementById('excel-tabs-content');
+const stopBtn          = document.getElementById('excel-stop-btn');
+const requestController = createRequestController({
+    runButtons: [],
+    cancelButton: stopBtn
+});
 
 // ── State ──
 let sheetNames = [];
@@ -18,9 +23,11 @@ document.addEventListener('DOMContentLoaded', () => loadMeta());
 
 // ── 1. Fetch lightweight metadata (sheet names + headers + row counts) ──
 async function loadMeta() {
+    const request = requestController.begin();
+    const signal = request.signal;
     try {
         showLoading();
-        const res = await fetch('/api/excelData/meta');
+        const res = await fetch('/api/excelData/meta', { signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
@@ -35,16 +42,23 @@ async function loadMeta() {
         renderTabs();
         activateTab(sheetNames[0]);
     } catch (err) {
+        if (err.name === 'AbortError') {
+            hideLoading();
+            showError('Loading cancelled.');
+            return;
+        }
         console.error(err);
         hideLoading();
         showError(err.message);
+    } finally {
+        requestController.end(request);
     }
 }
 
 // ── 2. Fetch one page of a sheet ──
-async function fetchPage(sheetName, page) {
+async function fetchPage(sheetName, page, signal) {
     const params = new URLSearchParams({ name: sheetName, page, page_size: PAGE_SIZE });
-    const res = await fetch(`/api/excelData/sheet?${params}`);
+    const res = await fetch(`/api/excelData/sheet?${params}`, { signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
 }
@@ -88,16 +102,24 @@ async function activateTab(sheetName) {
 async function loadSheetPage(sheetName, page) {
     const container = tabsContent.querySelector(`[data-sheet="${sheetName}"]`);
     if (!container) return;
+    const request = requestController.begin();
+    const signal = request.signal;
 
     // show inline loading
     container.innerHTML = '<div class="loading-spinner"><div class="spinner-border spinner-border-sm" role="status"></div><p class="mt-2">Loading…</p></div>';
 
     try {
-        const json = await fetchPage(sheetName, page);
+        const json = await fetchPage(sheetName, page, signal);
         sheetState[sheetName].page = json.page;
         renderSheet(container, sheetName, json);
     } catch (err) {
+        if (err.name === 'AbortError') {
+            container.innerHTML = '<div class="text-muted fst-italic py-2">Loading cancelled.</div>';
+            return;
+        }
         container.innerHTML = `<div class="error-message"><strong>Error:</strong> ${err.message}</div>`;
+    } finally {
+        requestController.end(request);
     }
 }
 
@@ -228,10 +250,11 @@ function hideLoading() {
 }
 
 function showError(message) {
+    errorContainer.innerHTML = '';
     const div = document.createElement('div');
     div.className = 'error-message';
     div.innerHTML = `<strong>Error:</strong> ${message}`;
     errorContainer.appendChild(div);
 }
 
-
+stopBtn.addEventListener('click', () => requestController.cancel());

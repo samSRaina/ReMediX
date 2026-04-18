@@ -25,6 +25,7 @@ const DRUGBANK_FIELDS = {
 let currentInChIKey = null;
 let currentBioactivityType = 'IC50';
 let currentGeneSet = [];
+let requestController = null;
 
 // Bioactivity table columns
 const BIOACTIVITY_COLUMNS = [
@@ -41,7 +42,7 @@ const BIOACTIVITY_COLUMNS = [
 ];
 
 // Fetch and display bioactivity data
-async function fetchBioactivity(inchiKey, standardType) {
+async function fetchBioactivity(inchiKey, standardType, signal) {
     const tbody = document.getElementById('bioactivity-tbody');
     const emptyState = document.getElementById('bioactivity-empty');
 
@@ -56,7 +57,7 @@ async function fetchBioactivity(inchiKey, standardType) {
 
     try {
         const url = `/api/chembl/inchikey/${inchiKey}/bioactivity?standard_type=${standardType}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { signal });
 
         if (!response.ok) {
             emptyState.style.display = 'block';
@@ -88,6 +89,9 @@ async function fetchBioactivity(inchiKey, standardType) {
         updateGeneMatchLink();
 
     } catch (err) {
+        if (err.name === 'AbortError') {
+            return;
+        }
         console.error('Bioactivity fetch error:', err);
         emptyState.style.display = 'block';
     }
@@ -122,7 +126,9 @@ function handleTabClick(e) {
 
     // Get selected type and fetch data
     currentBioactivityType = tab.dataset.type;
-    fetchBioactivity(currentInChIKey, currentBioactivityType);
+    if (currentInChIKey) {
+        fetchProperties({ skipCoreFetch: true });
+    }
 }
 
 // Clear bioactivity table
@@ -187,10 +193,13 @@ function showError(message) {
 }
 
 // Fetch properties from API
-async function fetchProperties() {
+async function fetchProperties(options = {}) {
+    const request = requestController.begin();
+    const signal = request.signal;
     const input = document.getElementById('compound-input').value.trim();
-    if (!input) {
+    if (!input && !options.skipCoreFetch) {
         showError('Please enter a compound name or SMILE');
+        requestController.end(request);
         return;
     }
 
@@ -201,51 +210,73 @@ async function fetchProperties() {
 
     try {
         // First fetch PubChem to get InChIKey
-        const responsePubchem = await fetch(endpoint);
-        if (!responsePubchem.ok) {
-            throw new Error('Compound not found or API error');
+        let pubchemData = null;
+        if (!options.skipCoreFetch) {
+            const responsePubchem = await fetch(endpoint, { signal });
+            if (!responsePubchem.ok) {
+                throw new Error('Compound not found or API error');
+            }
+            pubchemData = await responsePubchem.json();
+        } else {
+            pubchemData = { InChIKey: currentInChIKey };
         }
-
-        const pubchemData = await responsePubchem.json();
 
         // Fetch DrugBank in parallel if InChIKey exists
         let drugbankData = null;
-        if (pubchemData.InChIKey) {
-            const responseDrugbank = await fetch(`/api/drugbank/inchikey/${pubchemData.InChIKey}/properties`);
+        if (pubchemData?.InChIKey && !options.skipCoreFetch) {
+            const responseDrugbank = await fetch(`/api/drugbank/inchikey/${pubchemData.InChIKey}/properties`, { signal });
             if (responseDrugbank.ok) {
                 drugbankData = await responseDrugbank.json();
             }
         }
 
         // Display both datasets together
-        displayPubchemData(pubchemData, input);
-        if (drugbankData) {
-            displayDrugbankData(drugbankData);
-        } else {
-            clearDrugbankData();
+        if (!options.skipCoreFetch) {
+            displayPubchemData(pubchemData, input);
+            if (drugbankData) {
+                displayDrugbankData(drugbankData);
+            } else {
+                clearDrugbankData();
+            }
         }
 
         // Fetch bioactivity data if InChIKey exists
-        if (pubchemData.InChIKey) {
+        if (pubchemData?.InChIKey) {
             currentInChIKey = pubchemData.InChIKey;
-            fetchBioactivity(currentInChIKey, currentBioactivityType);
+            await fetchBioactivity(currentInChIKey, currentBioactivityType, signal);
         } else {
             clearBioactivity();
         }
 
     } catch (err) {
+        if (err.name === 'AbortError') {
+            document.getElementById('error-message').innerText = 'Request cancelled.';
+            return;
+        }
         showError(err.message || 'An error occurred.');
+    } finally {
+        requestController.end(request);
     }
 }
 
 // Initialize event listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    const getPropertiesBtn = document.getElementById('get-properties-btn');
+    const stopBtn = document.getElementById('stop-home-btn');
+    requestController = createRequestController({
+        runButtons: [getPropertiesBtn],
+        cancelButton: stopBtn
+    });
 
     document.getElementById('home-form').addEventListener('submit', (e) => {
         e.preventDefault();
         document.getElementById('error-message').innerText = '';
         clearResults();
         fetchProperties();
+    });
+    stopBtn.addEventListener('click', () => {
+        requestController.cancel();
+        document.getElementById('error-message').innerText = 'Request cancelled.';
     });
 
     // Add bioactivity tab click listeners
@@ -254,4 +285,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show empty state initially
     document.getElementById('bioactivity-empty').style.display = 'block';
 });
-
