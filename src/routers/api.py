@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from typing import Optional
+import logging
 from ..clients import pubchem_client, drugbank_client, chembl_client, creeds_client, geneCards_client
 from ..utils import final_gene_score
 
 router= APIRouter(prefix="/api")
+logger = logging.getLogger(__name__)
 
 # PubChem database endpoints
 @router.get("/compound/name/{name}/properties")
@@ -158,8 +160,9 @@ async def get_available_diseases():
         dataset = creeds_client._load_disease_signature_dataset()
         diseases = sorted(set(str(entry.get('disease_name', '')).strip() for entry in dataset if entry.get('disease_name')))
         return {"diseases": diseases}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load diseases: {str(e)}")
+    except Exception:
+        logger.exception("Failed to load diseases")
+        raise HTTPException(status_code=500, detail="Failed to load diseases")
 
 
 @router.get("/calibration/benchmark")
@@ -167,7 +170,8 @@ async def run_scoring_benchmark():
     """Run configured benchmark cases to validate score behavior on known positives/negatives."""
     try:
         return creeds_client.run_calibration_benchmark()
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to run calibration benchmark: {str(exc)}") from exc
+    except Exception:
+        logger.exception("Failed to run calibration benchmark")
+        raise HTTPException(status_code=500, detail="Failed to run calibration benchmark")
 
 # ── helpers ────────────────────────────────────────────────────

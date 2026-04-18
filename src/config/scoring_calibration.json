@@ -7,7 +7,7 @@
     {
       "name": "sildenafil_pulmonary_hypertension_positive",
       "disease": "pulmonary hypertension",
-      "genes": ["PDE5A", "PDE6A", "PDE6B", "NOS3"],
+      "genes": ["PDE5A", "NOS3"],
       "expected": "positive",
       "min_expected_score": 0.5
     },

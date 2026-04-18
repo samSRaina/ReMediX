@@ -9,6 +9,10 @@ SINGLE_DRUG_PERTURBATION = Path(__file__).parent.parent / 'data' / 'CREEDS' / 's
 DISEASE_SIGNATURE_TABLE = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signature_table.json'
 SCORING_CALIBRATION = Path(__file__).parent.parent / 'config' / 'scoring_calibration.json'
 RATIO_THRESHOLD = 1.2
+# Confidence is blended from coverage and vote balance.
+# Base keeps confidence non-zero when evidence exists; weight increases confidence as votes become one-sided.
+CONFIDENCE_BALANCE_BASE = 0.5
+CONFIDENCE_BALANCE_WEIGHT = 0.5
 
 
 @lru_cache(maxsize=1)
@@ -221,7 +225,10 @@ def _weighted_disease_gene_mass(abs_score: float, beneficial_votes: float, harmf
         return 0.0
 
     vote_margin = abs(beneficial_votes - harmful_votes) / total_votes
+    # Additive smoothing (denominator +2) dampens very low-support vote totals.
     support = total_votes / (total_votes + 2.0)
+    # Square-root (sublinear) scaling keeps high-magnitude signature genes influential
+    # while preventing a few extreme scores from dominating mass.
     magnitude = math.sqrt(max(abs_score, 0.0))
     weighted_mass = magnitude * vote_margin * support
     return _round_metric(weighted_mass)
@@ -604,7 +611,10 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
     disease_evidence_coverage = 0.0 if disease_signature_total_abs_score == 0 else total_score_mass / disease_signature_total_abs_score
     uncertain_fraction = 0.0 if disease_signature_total_abs_score == 0 else uncertain_sum / disease_signature_total_abs_score
     vote_balance = 0.0 if total_score_mass == 0 else abs(beneficial_sum - harmful_sum) / total_score_mass
-    confidence = disease_evidence_coverage * (0.5 + 0.5 * vote_balance) * (1.0 - min(max(uncertain_fraction, 0.0), 1.0))
+    confidence_balance_component = CONFIDENCE_BALANCE_BASE + (CONFIDENCE_BALANCE_WEIGHT * vote_balance)
+    clamped_uncertain_fraction = min(max(uncertain_fraction, 0.0), 1.0)
+    certainty_factor = 1.0 - clamped_uncertain_fraction
+    confidence = disease_evidence_coverage * confidence_balance_component * certainty_factor
 
     reason_breakdown = {
         'not_found': len(not_found_genes),
@@ -719,13 +729,13 @@ def run_calibration_benchmark() -> dict:
                 'min_expected_score': _round_metric(min_expected_score),
                 'max_expected_score': _round_metric(max_expected_score),
             })
-        except Exception as exc:
+        except Exception:
             evaluations.append({
                 'name': case_name,
                 'status': 'ERROR',
                 'expected': expected,
                 'disease': disease,
-                'error': str(exc),
+                'error': 'BENCHMARK_EVALUATION_FAILED',
             })
 
     pass_rate = 0.0 if evaluated == 0 else passed / evaluated

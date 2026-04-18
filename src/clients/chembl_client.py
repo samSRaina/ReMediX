@@ -9,6 +9,10 @@ _PRIMARY_TARGET_TYPES = {
     'PROTEIN COMPLEX GROUP': 0.6,
     'PROTEIN FAMILY': 0.5,
 }
+# Minimum aggregate evidence score for a target gene to be treated as mechanism-prioritized.
+# A value of 1.5 typically requires either strong potency on one primary target entry or
+# multiple moderate-confidence activity observations.
+_GENE_EVIDENCE_THRESHOLD = 1.5
 
 # Lazy import - ChEMBL client will be loaded on first use
 _new_client = None
@@ -151,7 +155,7 @@ class ChEMBLClient:
         self._activities_cache[inchi_key] = activities
         return activities
 
-    def _to_float(self, value):
+    def _try_parse_float(self, value):
         try:
             return float(value)
         except (TypeError, ValueError):
@@ -163,7 +167,7 @@ class ChEMBLClient:
         target_type = (target_data.get('target_type') or '').strip().upper()
         weight += _PRIMARY_TARGET_TYPES.get(target_type, 0.2)
 
-        standard_value = self._to_float(activity.get('standard_value'))
+        standard_value = self._try_parse_float(activity.get('standard_value'))
         if standard_value is not None and standard_value > 0:
             if standard_value <= 100:
                 weight += 1.0
@@ -242,10 +246,7 @@ class ChEMBLClient:
                         confidence_weight = self._activity_confidence_weight(act, target_info or {})
                         gene_evidence[gene] = gene_evidence.get(gene, 0.0) + confidence_weight
 
-        prioritized = {
-            gene for gene, score in gene_evidence.items()
-            if score >= 1.5
-        }
+        prioritized = {gene for gene, score in gene_evidence.items() if score >= _GENE_EVIDENCE_THRESHOLD}
         if prioritized:
             return prioritized
         return fallback_gene_set
