@@ -8,9 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
-src/data
-src/data.zip
+
+# both are tracked with git lfs
+#src/data
+#src/data.zip
 .idea
 gc
-frontend/node_modules/
-frontend/dist/
+
+src/data/CREEDS/disease_signature_table.json
