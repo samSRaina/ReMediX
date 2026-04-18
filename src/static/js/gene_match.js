@@ -99,7 +99,7 @@ function clearResultsForDiseaseChange() {
     emptyState.style.display = geneList.length === 0 ? 'block' : 'none';
     showEl(loadingState, false);
     if (matchSummary) {
-        matchSummary.textContent = 'Discarded ambiguous: 0 | Not found: 0';
+        matchSummary.textContent = 'Discarded ambiguous: 0 | Not found: 0 | Disease beneficial: 0 | Disease harmful: 0';
     }
     scoreBtn.disabled = true;
     if (scoreContainer) scoreContainer.style.display = 'none';
@@ -239,7 +239,9 @@ async function runMatch() {
         if (matchSummary) {
             const ambiguous = Number.isFinite(json.discarded_ambiguous_count) ? json.discarded_ambiguous_count : 0;
             const notFound = Number.isFinite(json.not_found_count) ? json.not_found_count : 0;
-            matchSummary.textContent = `Discarded ambiguous: ${ambiguous} | Not found: ${notFound}`;
+            const diseaseBeneficial = Number.isFinite(json.beneficial_disease_gene_count) ? json.beneficial_disease_gene_count : 0;
+            const diseaseHarmful = Number.isFinite(json.harmful_disease_gene_count) ? json.harmful_disease_gene_count : 0;
+            matchSummary.textContent = `Discarded ambiguous: ${ambiguous} | Not found: ${notFound} | Disease beneficial: ${diseaseBeneficial} | Disease harmful: ${diseaseHarmful}`;
         }
 
         if (rows.length === 0) {
@@ -283,15 +285,9 @@ async function runMatch() {
             tdRatio.textContent = Number.isFinite(ratioValue) ? ratioValue.toFixed(2) : '∞';
             tr.appendChild(tdRatio);
 
-            const tdBeneficial = document.createElement('td');
-            tdBeneficial.textContent = String(row.beneficial_count ?? 0);
-            tdBeneficial.classList.add('text-success');
-            tr.appendChild(tdBeneficial);
-
-            const tdHarmful = document.createElement('td');
-            tdHarmful.textContent = String(row.harmful_count ?? 0);
-            tdHarmful.classList.add('text-danger');
-            tr.appendChild(tdHarmful);
+            const tdCommonDisease = document.createElement('td');
+            tdCommonDisease.textContent = String(row.common_disease_gene_count ?? 0);
+            tr.appendChild(tdCommonDisease);
 
             tbody.appendChild(tr);
         });
