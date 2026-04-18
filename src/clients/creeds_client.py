@@ -442,6 +442,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
             'beneficial_disease_genes': [],
             'harmful_disease_genes': [],
             'beneficial_disease_gene_score': 0.0,
+            'harmful_disease_gene_score': 0.0,
         }
 
         if ratio < RATIO_THRESHOLD:
@@ -480,6 +481,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
             row['beneficial_disease_genes'] = [key]
             row['harmful_disease_genes'] = []
             row['beneficial_disease_gene_score'] = _round_metric(disease_abs_score)
+            row['harmful_disease_gene_score'] = 0.0
             beneficial_gene_count += 1
             beneficial_sum += disease_abs_score
             beneficial_disease_gene_map[key] = disease_abs_score
@@ -491,6 +493,7 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
             row['harmful'] = 'harmful: 1'
             row['harmful_disease_genes'] = [key]
             row['beneficial_disease_gene_score'] = 0.0
+            row['harmful_disease_gene_score'] = _round_metric(disease_abs_score)
             harmful_gene_count += 1
             harmful_sum += disease_abs_score
             harmful_disease_gene_map[key] = disease_abs_score
