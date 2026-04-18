@@ -10,11 +10,18 @@ logger = logging.getLogger(__name__)
 class DrugBankClient:
     NS = {'db': 'http://www.drugbank.ca'}
     DEFAULT_XML_PATH = Path(__file__).resolve().parent.parent / 'data' / 'drugBank' / 'full database.xml'
+    _inchikey_cache: dict[str, Optional[dict]] = {}
 
     def __init__(self, xml_path: Path = None):
         self.xml_path = xml_path or self.DEFAULT_XML_PATH
 
     def search_drug_by_inchikey(self, inchikey: str) -> Optional[dict]:
+        key = str(inchikey or "").strip()
+        if not key:
+            return None
+        if key in self._inchikey_cache:
+            return self._inchikey_cache[key]
+
         for event, elem in etree.iterparse(str(self.xml_path),
                                            events=('end',),
                                            tag='{http://www.drugbank.ca}drug'):
@@ -24,11 +31,13 @@ class DrugBankClient:
                     kind = prop.find('db:kind', self.NS)
                     if kind is not None and kind.text == 'InChIKey':
                         value = prop.find('db:value', self.NS)
-                        if value is not None and value.text == inchikey:
+                        if value is not None and value.text == key:
                             drug_data = self._extract_drug_data(elem)
                             elem.clear()
+                            self._inchikey_cache[key] = drug_data
                             return drug_data
             elem.clear()
+        self._inchikey_cache[key] = None
         return None
 
     def _extract_drug_data(self, drug_elem) -> dict:
@@ -71,4 +80,3 @@ if __name__ == "__main__":
     client = DrugBankClient()
     result = client.search_drug_by_inchikey("BSYNRYMUTXBXSQ-UHFFFAOYSA-N")
     print(result)
-

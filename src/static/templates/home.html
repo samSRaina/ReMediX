@@ -16,7 +16,10 @@
                 <label for="searchbar-toggle" class="form-check-label">Search via SMILE</label>
             </div>
         </div>
-        <button type="submit" class="btn btn-dark w-100">Get Properties</button>
+        <div class="d-flex gap-2">
+            <button id="get-properties-btn" type="submit" class="btn btn-dark w-100">Get Properties</button>
+            <button id="stop-home-btn" type="button" class="btn btn-outline-danger" disabled>Stop</button>
+        </div>
     </form>
 
     <div class="row g-4">
@@ -167,6 +170,8 @@
     </div>
 
     <div id="error-message" class="text-danger text-center mt-3"></div>
+{% endblock %}
 
-    <script src="{{ url_for('static', path='js/home.js') }}?v=2"></script>
+{% block extra_scripts %}
+    <script src="{{ url_for('static', path='js/home.js') }}?v=3"></script>
 {% endblock %}

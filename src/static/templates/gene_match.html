@@ -30,6 +30,7 @@
         <div class="col-md-4 d-flex align-items-end gap-2">
             <button id="match-btn" class="btn btn-dark flex-grow-1">Run Match</button>
             <button id="score-btn" class="btn btn-outline-dark flex-grow-1" disabled>Get Score</button>
+            <button id="stop-btn" class="btn btn-outline-danger" type="button" disabled>Stop</button>
         </div>
     </div>
 
@@ -42,7 +43,7 @@
         <h5 class="alert-heading">Re-purposing Score</h5>
         <div class="d-flex justify-content-between">
              <span>Final Score: <strong id="score-value" class="fs-4"></strong></span>
-             <small class="text-muted align-self-center">Based on <span id="score-genes-count">0</span> beneficial disease genes</small>
+             <small class="text-muted align-self-center">Based on <span id="score-genes-count">0</span> matched genes</small>
         </div>
         <div class="small text-muted mt-2">
             <span id="score-interpretation">Interpretation: -</span> |
@@ -84,6 +85,7 @@
                 <h2 class="h6 mb-0">Disease Signature Table</h2>
                 <small class="text-muted" id="sheet-name-label">Disease: <span id="disease-name-display">Not selected</span></small>
             </div>
+            <div class="small text-muted mb-2" id="sheet-page-meta"></div>
             <div class="table-responsive">
                 <table class="table table-sm table-striped table-hover mb-0" id="sheet-table">
                     <thead class="table-dark" id="sheet-thead">

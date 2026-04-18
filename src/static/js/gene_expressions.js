@@ -13,9 +13,16 @@ const searchInput = document.getElementById('gene-search');
 const searchBtn = document.getElementById('search-btn');
 const clearBtn = document.getElementById('clear-btn');
 const pageSizeSelect = document.getElementById('page-size-select');
+const stopBtn = document.getElementById('gene-stop-btn');
+const requestController = createRequestController({
+    runButtons: [searchBtn, clearBtn, pageSizeSelect],
+    cancelButton: stopBtn
+});
 
 // ── Fetch Data ──
 async function fetchGeneData(page, search, pageSize) {
+    const request = requestController.begin();
+    const signal = request.signal;
     loadingState.style.display = 'block';
     emptyState.style.display = 'none';
     tbody.innerHTML = '';
@@ -24,7 +31,7 @@ async function fetchGeneData(page, search, pageSize) {
     if (search) params.set('search', search);
 
     try {
-        const res = await fetch(`/api/geneExpressions?${params}`);
+        const res = await fetch(`/api/geneExpressions?${params}`, { signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
 
@@ -45,10 +52,18 @@ async function fetchGeneData(page, search, pageSize) {
         resultsInfo.textContent = `Showing ${start}–${end} of ${json.total.toLocaleString()} records`;
 
     } catch (err) {
+        if (err.name === 'AbortError') {
+            loadingState.style.display = 'none';
+            emptyState.textContent = 'Request cancelled.';
+            emptyState.style.display = 'block';
+            return;
+        }
         console.error('Fetch error:', err);
         loadingState.style.display = 'none';
         emptyState.textContent = 'Error loading data. Please try again.';
         emptyState.style.display = 'block';
+    } finally {
+        requestController.end(request);
     }
 }
 
@@ -190,4 +205,4 @@ pageSizeSelect.addEventListener('change', () => {
 
 // ── Initial Load ──
 fetchGeneData(currentPage, currentSearch, currentPageSize);
-
+stopBtn.addEventListener('click', () => requestController.cancel());

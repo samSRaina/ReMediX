@@ -1,10 +1,13 @@
 const SIGNATURE_PAGE_SIZE = 100;
+const POLL_INTERVAL_MS = 700;
 
 const params = new URLSearchParams(window.location.search);
 const genesParam = params.get('genes');
 const diseaseParam = (params.get('disease') || '').trim();
 const geneList = genesParam ? genesParam.split(',').filter(g => g.trim()) : [];
 let selectedDisease = diseaseParam;
+let activeJobId = null;
+let diseaseInputTimer = null;
 
 const tbody = document.getElementById('match-tbody');
 const emptyState = document.getElementById('match-empty');
@@ -14,6 +17,7 @@ const geneInfo = document.getElementById('gene-info');
 const errorMsg = document.getElementById('error-message');
 const matchBtn = document.getElementById('match-btn');
 const scoreBtn = document.getElementById('score-btn');
+const stopBtn = document.getElementById('stop-btn');
 const scoreContainer = document.getElementById('score-container');
 const scoreValue = document.getElementById('score-value');
 const scoreGenesCount = document.getElementById('score-genes-count');
@@ -28,22 +32,12 @@ const sheetTbody = document.getElementById('sheet-tbody');
 const sheetLoading = document.getElementById('sheet-loading');
 const sheetEmpty = document.getElementById('sheet-empty');
 const sheetError = document.getElementById('sheet-error');
+const sheetPageMeta = document.getElementById('sheet-page-meta');
 
-async function fetchDiseaseSignaturePage(disease, page, pageSize) {
-    const query = new URLSearchParams({
-        disease,
-        page: String(page),
-        page_size: String(pageSize)
-    });
-    const response = await fetch(`/api/diseaseSignature/table?${query.toString()}`);
-
-    if (!response.ok) {
-        const detail = await response.json().catch(() => ({}));
-        throw new Error(detail.detail || `HTTP ${response.status}`);
-    }
-
-    return response.json();
-}
+const requestController = createRequestController({
+    runButtons: [matchBtn, scoreBtn],
+    cancelButton: stopBtn
+});
 
 function showEl(el, shouldShow) {
     if (!el) return;
@@ -98,11 +92,89 @@ function clearResultsForDiseaseChange() {
     tbody.innerHTML = '';
     emptyState.style.display = geneList.length === 0 ? 'block' : 'none';
     showEl(loadingState, false);
-    if (matchSummary) {
-        matchSummary.textContent = 'Discarded ambiguous: 0 | Not found: 0';
-    }
+    if (matchSummary) matchSummary.textContent = 'Discarded ambiguous: 0 | Not found: 0';
     scoreBtn.disabled = true;
     if (scoreContainer) scoreContainer.style.display = 'none';
+}
+
+function createAbortError() {
+    const error = new Error('Request cancelled.');
+    error.name = 'AbortError';
+    return error;
+}
+
+async function waitWithAbort(ms, signal) {
+    await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, ms);
+        if (!signal) return;
+        signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+            reject(createAbortError());
+        }, { once: true });
+    });
+}
+
+async function cancelActiveJob() {
+    if (!activeJobId) return;
+    const jobId = activeJobId;
+    activeJobId = null;
+    try {
+        await fetch(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
+    } catch (_) {
+        // best-effort cancellation
+    }
+}
+
+async function runJobAndGetResult(endpoint, payload, request) {
+    await cancelActiveJob();
+    const signal = request.signal;
+
+    const startRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal
+    });
+
+    if (!startRes.ok) {
+        const detail = await startRes.json().catch(() => ({}));
+        throw new Error(detail.detail || `HTTP ${startRes.status}`);
+    }
+
+    const startPayload = await startRes.json();
+    const jobId = startPayload.job_id;
+    activeJobId = jobId;
+
+    try {
+        while (true) {
+            if (signal.aborted) throw createAbortError();
+
+            const statusRes = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { signal });
+            if (!statusRes.ok) throw new Error(`Failed to fetch job status (HTTP ${statusRes.status})`);
+            const statusPayload = await statusRes.json();
+
+            if (statusPayload.status === 'completed') {
+                const resultRes = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/result`, { signal });
+                if (!resultRes.ok) {
+                    const detail = await resultRes.json().catch(() => ({}));
+                    throw new Error(detail.detail || `Failed to fetch job result (HTTP ${resultRes.status})`);
+                }
+                const resultPayload = await resultRes.json();
+                return resultPayload.result;
+            }
+
+            if (statusPayload.status === 'failed') {
+                throw new Error(statusPayload.error || 'Job failed');
+            }
+            if (statusPayload.status === 'cancelled') {
+                throw createAbortError();
+            }
+
+            await waitWithAbort(POLL_INTERVAL_MS, signal);
+        }
+    } finally {
+        if (activeJobId === jobId) activeJobId = null;
+    }
 }
 
 async function loadAvailableDiseases() {
@@ -111,9 +183,7 @@ async function loadAvailableDiseases() {
 
     try {
         const response = await fetch('/api/diseases');
-        if (!response.ok) {
-            throw new Error(`Failed to load diseases (HTTP ${response.status})`);
-        }
+        if (!response.ok) throw new Error(`Failed to load diseases (HTTP ${response.status})`);
 
         const data = await response.json();
         const diseases = data.diseases || [];
@@ -135,9 +205,7 @@ async function loadAvailableDiseases() {
         const option = document.createElement('option');
         option.value = 'Could not load diseases';
         diseaseList.appendChild(option);
-        if (errorMsg) {
-            errorMsg.textContent = 'Could not load disease list. Make sure the backend is running and refresh the page.';
-        }
+        if (errorMsg) errorMsg.textContent = 'Could not load disease list. Refresh the page.';
     }
 }
 
@@ -147,6 +215,7 @@ async function loadDiseaseSignatureTable() {
         showEl(sheetLoading, false);
         showEl(sheetError, false);
         showEl(sheetEmpty, true);
+        if (sheetPageMeta) sheetPageMeta.textContent = '';
         return;
     }
 
@@ -155,20 +224,14 @@ async function loadDiseaseSignatureTable() {
     showEl(sheetEmpty, false);
     showEl(sheetLoading, true);
 
+    const request = requestController.begin();
     try {
-        const firstPage = await fetchDiseaseSignaturePage(selectedDisease, 1, SIGNATURE_PAGE_SIZE);
-        const totalPages = firstPage.totalPages || 1;
-        const allRows = [...(firstPage.data || [])];
+        const payload = await runJobAndGetResult('/api/jobs/diseaseSignatureTable', {
+            disease: selectedDisease,
+            page: 1,
+            page_size: SIGNATURE_PAGE_SIZE
+        }, request);
 
-        for (let page = 2; page <= totalPages; page += 1) {
-            const nextPage = await fetchDiseaseSignaturePage(selectedDisease, page, SIGNATURE_PAGE_SIZE);
-            allRows.push(...(nextPage.data || []));
-        }
-
-        const payload = {
-            headers: firstPage.headers || [],
-            data: allRows
-        };
         const headers = payload.headers || [];
         const data = payload.data || [];
 
@@ -180,29 +243,31 @@ async function loadDiseaseSignatureTable() {
         }
 
         renderSheetTable(headers, data);
+        if (sheetPageMeta) {
+            sheetPageMeta.textContent = `Showing page ${payload.page} of ${payload.totalPages} (${payload.total} total rows).`;
+        }
         if (data.length === 0) showEl(sheetEmpty, true);
     } catch (err) {
-        if (sheetError) {
+        if (err.name === 'AbortError') {
+            if (sheetError) sheetError.textContent = 'Loading cancelled.';
+        } else if (sheetError) {
             sheetError.textContent = err.message || 'Failed to load disease signature data.';
         }
         showEl(sheetError, true);
     } finally {
         showEl(sheetLoading, false);
+        requestController.end(request);
     }
 }
 
 async function setDisease(diseaseName, shouldLoadTable = true) {
     selectedDisease = (diseaseName || '').trim();
-    if (diseaseNameDisplay) {
-        diseaseNameDisplay.textContent = selectedDisease || 'Not selected';
-    }
+    if (diseaseNameDisplay) diseaseNameDisplay.textContent = selectedDisease || 'Not selected';
 
     updateControlState();
     clearResultsForDiseaseChange();
 
-    if (shouldLoadTable) {
-        await loadDiseaseSignatureTable();
-    }
+    if (shouldLoadTable) await loadDiseaseSignatureTable();
 }
 
 async function runMatch() {
@@ -222,17 +287,12 @@ async function runMatch() {
     scoreBtn.disabled = true;
     if (scoreContainer) scoreContainer.style.display = 'none';
 
+    const request = requestController.begin();
     try {
-        const url = `/api/match?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(selectedDisease)}`;
-        const res = await fetch(url);
-
-        if (!res.ok) {
-            const detail = await res.json().catch(() => ({}));
-            throw new Error(detail.detail || `HTTP ${res.status}`);
-        }
-
-        const json = await res.json();
-        loadingState.style.display = 'none';
+        const json = await runJobAndGetResult('/api/jobs/match', {
+            genes: geneList,
+            disease: selectedDisease
+        }, request);
 
         const rows = Array.isArray(json.results) ? json.results : [];
 
@@ -261,13 +321,9 @@ async function runMatch() {
             const tdClassification = document.createElement('td');
             const classification = row.classification || row.direction || '-';
             tdClassification.textContent = classification;
-            if (classification === 'UP') {
-                tdClassification.classList.add('text-success');
-            } else if (classification === 'DOWN') {
-                tdClassification.classList.add('text-danger');
-            } else if (classification === 'AMBIGUOUS') {
-                tdClassification.classList.add('text-warning');
-            }
+            if (classification === 'UP') tdClassification.classList.add('text-success');
+            else if (classification === 'DOWN') tdClassification.classList.add('text-danger');
+            else if (classification === 'AMBIGUOUS') tdClassification.classList.add('text-warning');
             tr.appendChild(tdClassification);
 
             const tdUpCount = document.createElement('td');
@@ -296,34 +352,31 @@ async function runMatch() {
             tbody.appendChild(tr);
         });
     } catch (err) {
+        if (err.name === 'AbortError') errorMsg.textContent = 'Match cancelled.';
+        else errorMsg.textContent = err.message || 'An error occurred.';
+    } finally {
         loadingState.style.display = 'none';
-        errorMsg.textContent = err.message || 'An error occurred.';
+        requestController.end(request);
     }
 }
 
 async function getFinalScore() {
     if (geneList.length === 0 || !selectedDisease) return;
 
-    scoreBtn.disabled = true;
     const originalText = scoreBtn.textContent;
     scoreBtn.textContent = 'Calculating...';
     scoreContainer.style.display = 'none';
 
+    const request = requestController.begin();
     try {
-        const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(selectedDisease)}`;
-        const res = await fetch(url);
+        const data = await runJobAndGetResult('/api/jobs/finalGeneScore', {
+            genes: geneList,
+            disease: selectedDisease
+        }, request);
 
-        if (!res.ok) {
-            const detail = await res.json().catch(() => ({}));
-            throw new Error(detail.detail || 'Failed to calculate score');
-        }
-
-        const data = await res.json();
         scoreValue.textContent = typeof data.score === 'number' ? data.score.toFixed(6) : data.score;
         scoreGenesCount.textContent = data.genes_counted ? data.genes_counted.length : 0;
-        if (scoreInterpretation) {
-            scoreInterpretation.textContent = `Interpretation: ${data.interpretation || '-'}`;
-        }
+        if (scoreInterpretation) scoreInterpretation.textContent = `Interpretation: ${data.interpretation || '-'}`;
         if (scoreCoverage) {
             const coverageValue = Number(data.coverage);
             scoreCoverage.textContent = Number.isFinite(coverageValue)
@@ -332,25 +385,35 @@ async function getFinalScore() {
         }
         scoreContainer.style.display = 'block';
     } catch (err) {
-        console.error(err);
-        alert('Error calculating score: ' + err.message);
+        if (err.name === 'AbortError') errorMsg.textContent = 'Score calculation cancelled.';
+        else alert('Error calculating score: ' + err.message);
     } finally {
-        scoreBtn.disabled = false;
         scoreBtn.textContent = originalText;
+        requestController.end(request);
+        updateControlState();
     }
 }
 
 matchBtn.addEventListener('click', runMatch);
 scoreBtn.addEventListener('click', getFinalScore);
+stopBtn.addEventListener('click', async () => {
+    requestController.cancel();
+    await cancelActiveJob();
+    showEl(loadingState, false);
+    showEl(sheetLoading, false);
+    errorMsg.textContent = 'Request cancelled.';
+});
 
-diseaseInput.addEventListener('input', async () => {
-    await setDisease(diseaseInput.value);
+diseaseInput.addEventListener('input', () => {
+    clearTimeout(diseaseInputTimer);
+    diseaseInputTimer = setTimeout(async () => {
+        await setDisease(diseaseInput.value);
+    }, 400);
 });
 
 (async function init() {
     await loadAvailableDiseases();
-    if (diseaseParam && diseaseInput) {
-        diseaseInput.value = diseaseParam;
-    }
+    if (diseaseParam && diseaseInput) diseaseInput.value = diseaseParam;
     await setDisease(diseaseInput ? diseaseInput.value : '', true);
 })();
+
