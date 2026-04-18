@@ -310,6 +310,7 @@ async function getFinalScore() {
     scoreContainer.style.display = 'none';
 
     try {
+        // Final score on this page is the CREEDS-based aggregate exposed by /api/finalGeneScore.
         const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(selectedDisease)}`;
         const res = await fetch(url);
 
@@ -319,7 +320,8 @@ async function getFinalScore() {
         }
 
         const data = await res.json();
-        scoreValue.textContent = typeof data.score === 'number' ? data.score.toFixed(6) : data.score;
+        const rawScore = (typeof data.score !== 'undefined') ? data.score : data.repurposing_score;
+        scoreValue.textContent = typeof rawScore === 'number' ? rawScore.toFixed(6) : rawScore;
         scoreGenesCount.textContent = data.genes_counted ? data.genes_counted.length : 0;
         if (scoreInterpretation) {
             scoreInterpretation.textContent = `Interpretation: ${data.interpretation || '-'}`;
