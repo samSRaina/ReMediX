@@ -34,6 +34,24 @@ class DrugBankClient:
             'xml_size': stat.st_size,
         }
 
+    def _extract_index_from_cache_payload(self, payload: object) -> Optional[dict[str, dict]]:
+        # Support both legacy "raw index dict" caches and newer metadata payloads.
+        if not isinstance(payload, dict):
+            return None
+
+        # New format: {"metadata": ..., "index": {...}}
+        if "index" in payload:
+            index = payload.get("index")
+            if isinstance(index, dict):
+                return index
+            return None
+
+        # Legacy format: payload is already the index map.
+        if all(isinstance(value, dict) for value in payload.values()):
+            return payload
+
+        return None
+
     def _load_cached_index(self) -> Optional[dict[str, dict]]:
         if not self.index_cache_path.exists():
             return None
@@ -45,12 +63,12 @@ class DrugBankClient:
             logger.warning("Failed to read DrugBank cache file (%s): %s", self.index_cache_path, exc)
             return None
 
-        if not isinstance(payload, dict):
-            return None
-
-        metadata = payload.get('metadata')
-        index = payload.get('index')
-        if metadata != self._cache_metadata() or not isinstance(index, dict):
+        index = self._extract_index_from_cache_payload(payload)
+        if index is None:
+            logger.warning(
+                "DrugBank cache file exists but has an unsupported format (%s); rebuilding index",
+                self.index_cache_path,
+            )
             return None
 
         logger.info("Loaded DrugBank index cache from %s", self.index_cache_path)

@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,9 +12,51 @@ class ChEMBLClient:
     # Class-level caches for persistence across requests
     _target_cache = {}
     _activities_cache = {}
+    _molecule_cache = {}
 
     ACTIVITY_URL = "https://www.ebi.ac.uk/chembl/api/data/activity.json"
+    MOLECULE_URL = "https://www.ebi.ac.uk/chembl/api/data/molecule.json"
     TARGET_URL_TEMPLATE = "https://www.ebi.ac.uk/chembl/api/data/target/{target_chembl_id}.json"
+
+    @staticmethod
+    def _parse_standard_type_filter(standard_type: str | None) -> set[str]:
+        if not standard_type:
+            return set()
+
+        # Accept one or many values: "IC50", "ic50,ki", or "ac50/ic50/ki".
+        tokens = [token.strip().upper() for token in re.split(r"[,/|]+", standard_type) if token.strip()]
+        return set(tokens)
+
+    def _resolve_molecule_chembl_id(self, inchi_key: str) -> str | None:
+        if not inchi_key:
+            return None
+        normalized = inchi_key.strip().upper()
+        if normalized in self._molecule_cache:
+            return self._molecule_cache[normalized]
+
+        params = {
+            "molecule_structures__standard_inchi_key": normalized,
+            "limit": 1,
+        }
+
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = requests.get(self.MOLECULE_URL, params=params, timeout=30)
+                response.raise_for_status()
+                payload = response.json()
+                molecules = payload.get("molecules", [])
+                chembl_id = molecules[0].get("molecule_chembl_id") if molecules else None
+                self._molecule_cache[normalized] = chembl_id
+                return chembl_id
+            except Exception as exc:
+                last_error = exc
+                if attempt < 2:
+                    time.sleep(0.4 * (attempt + 1))
+
+        raise ConnectionError(
+            f"Failed to resolve ChEMBL molecule ID from InChIKey {normalized}"
+        ) from last_error
 
     def _fetch_target_by_id(self, target_chembl_id: str) -> dict:
         """Fetch one target record from REST API; return empty dict on miss/failure."""
@@ -60,9 +103,9 @@ class ChEMBLClient:
                 return accession
         return "--"
 
-    def _request_activity_page(self, inchi_key: str, limit: int, offset: int) -> dict:
+    def _request_activity_page(self, molecule_chembl_id: str, limit: int, offset: int) -> dict:
         params = {
-            "molecule_structures__standard_inchi_key": inchi_key,
+            "molecule_chembl_id": molecule_chembl_id,
             "limit": limit,
         }
         # First page is more reliable when offset is omitted.
@@ -80,19 +123,21 @@ class ChEMBLClient:
                 if attempt < 2:
                     time.sleep(0.4 * (attempt + 1))
 
-        raise ConnectionError(f"Failed to query activity data from ChEMBL for {inchi_key}") from last_error
+        raise ConnectionError(f"Failed to query activity data from ChEMBL for {molecule_chembl_id}") from last_error
 
-    def _fetch_activities_paginated(self, inchi_key: str, page_size: int = 20, max_pages: int = 120) -> list[dict]:
+    def _fetch_activities_paginated(self, molecule_chembl_id: str, page_size: int = 20, max_pages: int = 120) -> list[dict]:
         activities: list[dict] = []
         offset = 0
 
         for _ in range(max_pages):
             try:
-                payload = self._request_activity_page(inchi_key, page_size, offset)
+                payload = self._request_activity_page(molecule_chembl_id, page_size, offset)
             except ConnectionError:
                 # Keep partial data if upstream fails after at least one successful page.
                 if activities:
-                    logger.warning(f"ChEMBL paging interrupted for {inchi_key} at offset={offset}; returning partial data")
+                    logger.warning(
+                        f"ChEMBL paging interrupted for {molecule_chembl_id} at offset={offset}; returning partial data"
+                    )
                     break
                 raise
             page_rows = payload.get("activities", [])
@@ -109,10 +154,16 @@ class ChEMBLClient:
         return activities
 
     def _fetch_all_activities(self, inchi_key: str) -> list[dict]:
-        if inchi_key in self._activities_cache:
-            return self._activities_cache[inchi_key]
+        normalized = (inchi_key or "").strip().upper()
+        if normalized in self._activities_cache:
+            return self._activities_cache[normalized]
 
-        activities = self._fetch_activities_paginated(inchi_key)
+        molecule_chembl_id = self._resolve_molecule_chembl_id(normalized)
+        if not molecule_chembl_id:
+            self._activities_cache[normalized] = []
+            return []
+
+        activities = self._fetch_activities_paginated(molecule_chembl_id)
 
         unique_target_ids = list({act.get("target_chembl_id") for act in activities if act.get("target_chembl_id")})
         if unique_target_ids:
@@ -121,7 +172,7 @@ class ChEMBLClient:
             with ThreadPoolExecutor(max_workers=8) as executor:
                 executor.map(self._batch_fetch_targets, chunks)
 
-        self._activities_cache[inchi_key] = activities
+        self._activities_cache[normalized] = activities
         return activities
 
     def _enrich_activity(self, act: dict, include_target_details: bool = False) -> dict:
@@ -162,8 +213,13 @@ class ChEMBLClient:
         if not activities:
             return []
 
-        if standard_type:
-            activities = [act for act in activities if act.get("standard_type") == standard_type]
+        accepted_types = self._parse_standard_type_filter(standard_type)
+        if accepted_types:
+            activities = [
+                act
+                for act in activities
+                if (act.get("standard_type") or "").strip().upper() in accepted_types
+            ]
 
         act_data = []
         for act in activities:
@@ -177,8 +233,9 @@ class ChEMBLClient:
     def get_gene_set(self, inchi_key: str) -> set[str]:
         activities = self._fetch_all_activities(inchi_key)
         gene_set = set()
+        accepted_types = {"IC50", "AC50", "KI"}
         for act in activities:
-            if act.get("standard_type") in ("IC50", "AC50", "Ki"):
+            if (act.get("standard_type") or "").strip().upper() in accepted_types:
                 target_chembl_id = act.get("target_chembl_id")
                 if not target_chembl_id:
                     continue
