@@ -22,6 +22,7 @@ class ChEMBLClient:
     # Class-level caches for persistence across requests
     _target_cache = {}
     _activities_cache = {}
+    _molecule_batch_size = 20
 
     def __init__(self):
         self._molecule = None
@@ -149,7 +150,7 @@ class ChEMBLClient:
             return []
 
         activities = []
-        chunk_size = 20
+        chunk_size = self._molecule_batch_size
         chunks = [chembl_ids[i:i + chunk_size] for i in range(0, len(chembl_ids), chunk_size)]
         for chunk in chunks:
             try:
@@ -157,7 +158,7 @@ class ChEMBLClient:
                 activities.extend(list(self.activity.filter(molecule_chembl_id__in=chunk)))
             except Exception as e:
                 logger.error(f"Error fetching activities for molecule ids {chunk}: {e}")
-                return []
+                continue
 
         # Batch-fetch ALL targets referenced by these activities in ONE call
         unique_target_ids = list(set(
