@@ -24,6 +24,7 @@ class ChEMBLClient:
     _activities_cache = {}
     _MOLECULE_BATCH_SIZE = 20
     _INCHIKEY_CONNECTIVITY_LENGTH = 14
+    _GENESET_STANDARD_TYPES = frozenset({"IC50", "AC50", "KI"})
 
     def __init__(self):
         self._molecule = None
@@ -181,6 +182,10 @@ class ChEMBLClient:
         self._activities_cache[normalized_inchi_key] = activities
         return activities
 
+    def _normalize_standard_type(self, standard_type: str | None) -> str | None:
+        normalized = str(standard_type or "").strip().upper()
+        return normalized or None
+
     def _enrich_activity(self, act: dict, include_target_details: bool = False) -> dict:
         """Build an enriched activity dict from a raw ChEMBL activity record."""
         target_chembl_id = act.get('target_chembl_id')
@@ -216,7 +221,12 @@ class ChEMBLClient:
 
         # Filter by standard_type if provided
         if standard_type:
-            activities = [act for act in activities if act.get('standard_type') == standard_type]
+            normalized_standard_type = self._normalize_standard_type(standard_type)
+            activities = [
+                act
+                for act in activities
+                if self._normalize_standard_type(act.get('standard_type')) == normalized_standard_type
+            ]
 
         act_data = []
         for act in activities:
@@ -235,7 +245,7 @@ class ChEMBLClient:
         activities = self._fetch_all_activities(inchi_key)
         gene_set = set()
         for act in activities:
-            if act.get('standard_type') in ("IC50", "AC50", "Ki"):
+            if self._normalize_standard_type(act.get('standard_type')) in self._GENESET_STANDARD_TYPES:
                 target_chembl_id = act.get('target_chembl_id')
                 if target_chembl_id:
                     target_info = self._get_target_cached(target_chembl_id)
