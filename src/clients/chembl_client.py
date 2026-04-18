@@ -122,7 +122,7 @@ class ChEMBLClient:
         if not compound:
             # Fallback: resolve by 14-character connectivity block to support
             # compounds where stereochemistry/protonation differs across databases.
-            connectivity = normalized_inchi_key.split('-')[0]
+            connectivity = normalized_inchi_key.partition('-')[0]
             if len(connectivity) == self._INCHIKEY_CONNECTIVITY_LENGTH:
                 try:
                     compound = list(
