@@ -65,30 +65,62 @@ class DrugBankClient:
         except Exception as exc:
             logger.warning("Failed to write DrugBank cache file (%s): %s", self.index_cache_path, exc)
 
+    def _validate_xml_source(self) -> None:
+        if not self.xml_path.exists():
+            raise RuntimeError(
+                f"DrugBank XML not found at '{self.xml_path}'. Ensure data files are present."
+            )
+
+        stat = self.xml_path.stat()
+        if stat.st_size == 0:
+            raise RuntimeError(
+                f"DrugBank XML is empty at '{self.xml_path}'. If this repo uses Git LFS, run 'git lfs pull'."
+            )
+
+        # Git LFS pointer files are tiny text manifests, not real XML payloads.
+        try:
+            with self.xml_path.open('rb') as fh:
+                prefix = fh.read(128)
+        except OSError as exc:
+            raise RuntimeError(f"Unable to read DrugBank XML at '{self.xml_path}': {exc}") from exc
+
+        if prefix.startswith(b'version https://git-lfs.github.com/spec/v1'):
+            raise RuntimeError(
+                f"DrugBank XML at '{self.xml_path}' is a Git LFS pointer. Run 'git lfs pull' to fetch real data."
+            )
+
     def _build_index(self) -> dict[str, dict]:
         """Build a one-time in-memory index for fast lookups."""
         cached_index = self._load_cached_index()
         if cached_index is not None:
             return cached_index
 
+        self._validate_xml_source()
+
         logger.info("Building DrugBank index from %s", self.xml_path)
         index: dict[str, dict] = {}
-        for _, elem in etree.iterparse(
-            str(self.xml_path),
-            events=('end',),
-            tag='{http://www.drugbank.ca}drug',
-        ):
-            inchikey, drug_data = self._extract_drug_data_with_inchikey(elem)
-            if inchikey and inchikey not in index:
-                index[inchikey] = drug_data
+        try:
+            for _, elem in etree.iterparse(
+                str(self.xml_path),
+                events=('end',),
+                tag='{http://www.drugbank.ca}drug',
+            ):
+                inchikey, drug_data = self._extract_drug_data_with_inchikey(elem)
+                if inchikey and inchikey not in index:
+                    index[inchikey] = drug_data
 
-            elem.clear()
+                elem.clear()
 
-            # Release processed siblings to keep iterparse memory footprint stable.
-            parent = elem.getparent()
-            if parent is not None:
-                while elem.getprevious() is not None:
-                    del parent[0]
+                # Release processed siblings to keep iterparse memory footprint stable.
+                parent = elem.getparent()
+                if parent is not None:
+                    while elem.getprevious() is not None:
+                        del parent[0]
+        except etree.XMLSyntaxError as exc:
+            raise RuntimeError(
+                f"DrugBank XML parse failed for '{self.xml_path}': {exc}. "
+                "If this file is tracked with Git LFS, run 'git lfs pull'."
+            ) from exc
 
         logger.info("DrugBank index built with %d InChIKey entries", len(index))
         self._save_cached_index(index)

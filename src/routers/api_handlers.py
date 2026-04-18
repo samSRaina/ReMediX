@@ -25,7 +25,10 @@ async def get_properties_by_smile_api(smile: str):
 
 # DrugBank database endpoints
 async def get_properties_by_inchikey(inchikey: str):
-    result = _drugbank_client.search_drug_by_inchikey(inchikey)
+    try:
+        result = _drugbank_client.search_drug_by_inchikey(inchikey)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if result is None:
         raise HTTPException(status_code=404, detail=f"Drug '{inchikey}' not found in DrugBank database")
     return result
