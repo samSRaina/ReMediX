@@ -17,3 +17,9 @@ gc
 
 #dynamically created files
 src/data/CREEDS/disease_signature_table.json
+
+#Frontend
+node_modules/
+.vite/
+.env.local
+.DS_Store

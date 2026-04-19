@@ -15,7 +15,7 @@ router.add_api_route("/drugbank/inchikey/{inchikey}/properties", handlers.get_pr
 # ChEMBL database endpoints
 router.add_api_route("/chembl/inchikey/{inchikey}/bioactivity", handlers.get_bioactivity_by_inchikey, methods=["GET"])
 router.add_api_route(
-    "/chembl/inchikey/{inchkey}/bioactivity/{target_chembl_id}/target",
+    "/chembl/inchikey/{inchikey}/bioactivity/{target_chembl_id}/target",
     handlers.get_target_data,
     methods=["GET"],
 )

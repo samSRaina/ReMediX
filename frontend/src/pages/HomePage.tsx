@@ -147,7 +147,7 @@ export function HomePage() {
         <div className="mx-auto max-w-5xl">
           <h2 className="mt-4 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl">RepurposeIQ</h2>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-            RepurposeIQ scores any drug or compound for repurposing potential against any disease -- integrating 8 databases, 5 analytical steps and a weighted molecular structure.
+            RepurposeIQ scores any drug or compound for repurposing potential against any disease--integrating 8 databases, 5 analytical steps and a weighted molecular structure.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <button
