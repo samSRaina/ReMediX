@@ -23,3 +23,6 @@ node_modules/
 .vite/
 .env.local
 .DS_Store
+
+#.pk1 large file already being tracked via lfs
+/src/data/drugBank/drugbank_inchikey_index.pkl

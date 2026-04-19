@@ -74,7 +74,7 @@ async def get_final_gene_score(genes: str, disease: str):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-asynasync def get_target_data(inchikey: str, target_chembl_id: str):
+async def get_target_data(inchikey: str, target_chembl_id: str):
     # inchikey is part of route contract but target lookup only needs target_chembl_id.
     _ = inchikey
     result = chembl_client.ChEMBLClient().get_target_data(target_chembl_id)
