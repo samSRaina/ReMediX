@@ -21,13 +21,18 @@ This folder contains a modern React + TypeScript + Tailwind UI for the existing 
 - Copy-to-clipboard and sortable/filterable bioactivity table on home page
 
 ## Run in development
-1. Start backend (`uvicorn`) on `http://127.0.0.1:8000`.
-2. In this folder install deps and run Vite:
+1. Install frontend dependencies once:
 
 ```powershell
 Set-Location "D:\PycharmProjects\drugRepurpose-app\frontend"
 npm install
-npm run dev
+```
+
+2. Start both backend and frontend from the project root with the single entrypoint:
+
+```powershell
+Set-Location "D:\PycharmProjects\drugRepurpose-app"
+uv run python run.py
 ```
 
 Vite proxies `/api`, `/data`, and `/static` requests to the FastAPI server.
@@ -44,4 +49,9 @@ The build output is created in `frontend/dist`.
 - If your backend runs on a different host/port, set `VITE_API_BASE_URL`.
 - API typings are defined in `src/types/api.ts` and fetch wrappers in `src/lib/api.ts`.
 - This frontend is intended to replace the old Jinja/vanilla-JS page UX.
+
+## run in production
+```powershell
+fastapi run
+```
 
