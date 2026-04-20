@@ -13,6 +13,9 @@ from ..clients import chembl_client, creeds_client
 _EXCLUDED_SHEETS = ["Reactome"]
 _CREEDS_AMBIGUITY_RATIO_THRESHOLD = 1.2
 _PROMISCUITY_COEFFICIENT = 0.1
+_SCORE_SCALE_FACTOR = 10.0
+_HIGH_SCORE_THRESHOLD = 0.05
+_MODERATE_SCORE_THRESHOLD = 0.02
 _STANDARD_TYPE_EFFECT = {
     "IC50": "INHIBITOR",
     "KI": "INHIBITOR",
@@ -175,15 +178,17 @@ def _get_gene_weight(disease: str, gene: str, weight_config: dict) -> float:
 
 
 def _categorize_score(final_score: float) -> str:
-    if final_score > 0.05:
+    if final_score > _HIGH_SCORE_THRESHOLD:
         return "High"
-    if 0.02 <= final_score <= 0.05:
+    if _MODERATE_SCORE_THRESHOLD <= final_score <= _HIGH_SCORE_THRESHOLD:
         return "Moderate"
     return "Low"
 
 
 def _calculate_promiscuity_penalty(target_count: int) -> float:
-    if target_count <= 1:
+    if target_count == 0:
+        return 1.0
+    if target_count == 1:
         return 1.0
     return 1.0 / (1.0 + (_PROMISCUITY_COEFFICIENT * math.log(target_count)))
 
@@ -291,7 +296,7 @@ def calculate_final_score(inchikey: str, disease: str) -> dict:
     raw_score = numerator / denominator
     target_count = len(unique_genes)
     penalty = _calculate_promiscuity_penalty(target_count)
-    final_score = min(raw_score * penalty * 10.0, 1.0)
+    final_score = min(raw_score * penalty * _SCORE_SCALE_FACTOR, 1.0)
 
     return {
         "drug": inchikey,

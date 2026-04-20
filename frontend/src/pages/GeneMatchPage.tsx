@@ -130,7 +130,7 @@ export function GeneMatchPage() {
 
         {score ? (
           <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 p-4">
-            <p className="text-sm font-semibold text-cyan-900">Re-purposing Score</p>
+            <p className="text-sm font-semibold text-cyan-900">Repurposing Score</p>
             <p className="text-2xl font-bold text-cyan-800">{score.final_score.toFixed(6)}</p>
             <p className="text-xs text-cyan-700">
               Category: {score.category} • Numerator: {score.numerator.toFixed(6)} • Denominator: {score.denominator.toFixed(6)} •
