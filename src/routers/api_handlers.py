@@ -62,10 +62,24 @@ async def get_gene_match(genes: str, disease: str):
     return creeds_client.match_gene_set(gene_list, disease)
 
 
-async def get_final_gene_score(inchikey: str, disease: str):
+async def get_final_gene_score(
+    disease: Optional[str] = None,
+    inchikey: Optional[str] = None,
+    inchiKey: Optional[str] = None,
+):
     """Calculate final repurposing score using ChEMBL targets + CREEDS + disease signature."""
+    if not disease or not disease.strip():
+        raise HTTPException(status_code=400, detail="Disease parameter is required")
+
+    resolved_inchikey = (inchikey or inchiKey or "").strip()
+    if not resolved_inchikey:
+        raise HTTPException(
+            status_code=400,
+            detail="InChIKey parameter is required (accepted query keys: 'inchikey' or 'inchiKey')",
+        )
+
     try:
-        return final_gene_score.calculate_final_score(inchikey, disease)
+        return final_gene_score.calculate_final_score(resolved_inchikey, disease)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

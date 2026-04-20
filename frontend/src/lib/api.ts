@@ -13,13 +13,32 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
+function formatApiDetail(detail: unknown): string | null {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const loc = Array.isArray((item as { loc?: unknown }).loc) ? (item as { loc: unknown[] }).loc.join('.') : '';
+        const msg = typeof (item as { msg?: unknown }).msg === 'string' ? (item as { msg: string }).msg : '';
+        if (!loc && !msg) return null;
+        return loc ? `${loc}: ${msg}` : msg;
+      })
+      .filter(Boolean) as string[];
+    if (parts.length > 0) return parts.join(' | ');
+  }
+  if (detail && typeof detail === 'object') return JSON.stringify(detail);
+  return null;
+}
+
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
   if (!response.ok) {
     let detail = `Request failed (${response.status})`;
     try {
-      const body = (await response.json()) as { detail?: string };
-      if (body?.detail) detail = body.detail;
+      const body = (await response.json()) as { detail?: unknown };
+      const parsed = formatApiDetail(body?.detail);
+      if (parsed) detail = parsed;
     } catch {
       // Keep fallback detail when response body is not JSON.
     }
