@@ -103,7 +103,13 @@ function updateGeneMatchLink() {
             link.className = 'btn btn-outline-dark btn-sm mt-2';
             document.getElementById('chembl').querySelector('.card-body').appendChild(link);
         }
-        link.href = `/geneMatch?genes=${encodeURIComponent(currentGeneSet.join(','))}`;
+        const query = new URLSearchParams({
+            genes: currentGeneSet.join(',')
+        });
+        if (currentInChIKey) {
+            query.set('inchikey', currentInChIKey);
+        }
+        link.href = `/geneMatch?${query.toString()}`;
         link.textContent = `Match ${currentGeneSet.length} gene(s) on next page →`;
         link.style.display = 'inline-block';
     } else if (link) {
@@ -254,4 +260,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show empty state initially
     document.getElementById('bioactivity-empty').style.display = 'block';
 });
-

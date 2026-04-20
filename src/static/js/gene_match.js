@@ -3,8 +3,10 @@ const SIGNATURE_PAGE_SIZE = 100;
 const params = new URLSearchParams(window.location.search);
 const genesParam = params.get('genes');
 const diseaseParam = (params.get('disease') || '').trim();
+const inchiKeyParam = (params.get('inchikey') || params.get('inchiKey') || '').trim();
 const geneList = genesParam ? genesParam.split(',').filter(g => g.trim()) : [];
 let selectedDisease = diseaseParam;
+const selectedInchiKey = inchiKeyParam;
 
 const tbody = document.getElementById('match-tbody');
 const emptyState = document.getElementById('match-empty');
@@ -82,13 +84,17 @@ function renderSheetTable(headers, rows) {
 function updateControlState() {
     const hasGenes = geneList.length > 0;
     const hasDisease = Boolean(selectedDisease);
+    const hasInchiKey = Boolean(selectedInchiKey);
     matchBtn.disabled = !(hasGenes && hasDisease);
+    scoreBtn.disabled = !(hasGenes && hasDisease && hasInchiKey);
 
     if (!hasGenes) {
         geneInfo.textContent = 'No gene set found. Go back to Home and search a compound first.';
         emptyState.style.display = 'block';
     } else if (!hasDisease) {
         geneInfo.textContent = `Gene set: ${geneList.length} gene(s). Select a disease to continue.`;
+    } else if (!hasInchiKey) {
+        geneInfo.textContent = `Gene set: ${geneList.length} gene(s) - Disease: ${selectedDisease} - InChIKey missing. Return to Home and open this page from a compound result.`;
     } else {
         geneInfo.textContent = `Gene set: ${geneList.length} gene(s) - Disease: ${selectedDisease}`;
     }
@@ -248,7 +254,7 @@ async function runMatch() {
             return;
         }
 
-        scoreBtn.disabled = false;
+        scoreBtn.disabled = !selectedInchiKey;
         geneInfo.textContent = `Gene set: ${geneList.length} gene(s) - Disease: ${json.disease}`;
 
         rows.forEach(row => {
@@ -302,7 +308,12 @@ async function runMatch() {
 }
 
 async function getFinalScore() {
-    if (geneList.length === 0 || !selectedDisease) return;
+    if (geneList.length === 0 || !selectedDisease || !selectedInchiKey) {
+        if (!selectedInchiKey) {
+            alert('InChIKey missing. Return to Home and open Gene Match from compound results.');
+        }
+        return;
+    }
 
     scoreBtn.disabled = true;
     const originalText = scoreBtn.textContent;
@@ -310,7 +321,7 @@ async function getFinalScore() {
     scoreContainer.style.display = 'none';
 
     try {
-        const url = `/api/finalGeneScore?genes=${encodeURIComponent(geneList.join(','))}&disease=${encodeURIComponent(selectedDisease)}`;
+        const url = `/api/finalGeneScore?inchikey=${encodeURIComponent(selectedInchiKey)}&disease=${encodeURIComponent(selectedDisease)}`;
         const res = await fetch(url);
 
         if (!res.ok) {
@@ -319,10 +330,11 @@ async function getFinalScore() {
         }
 
         const data = await res.json();
-        scoreValue.textContent = typeof data.score === 'number' ? data.score.toFixed(6) : data.score;
-        scoreGenesCount.textContent = data.genes_counted ? data.genes_counted.length : 0;
+        const resolvedScore = Number(data.final_score ?? data.score);
+        scoreValue.textContent = Number.isFinite(resolvedScore) ? resolvedScore.toFixed(6) : '-';
+        scoreGenesCount.textContent = data.beneficial_genes ? data.beneficial_genes.length : (data.genes_counted ? data.genes_counted.length : 0);
         if (scoreInterpretation) {
-            scoreInterpretation.textContent = `Interpretation: ${data.interpretation || '-'}`;
+            scoreInterpretation.textContent = `Interpretation: ${data.category || data.interpretation || '-'}`;
         }
         if (scoreCoverage) {
             const coverageValue = Number(data.coverage);
