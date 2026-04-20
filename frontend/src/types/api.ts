@@ -100,6 +100,8 @@ export interface DiseaseSignatureTableResponse {
   pageSize: number;
   total: number;
   totalPages: number;
+  totalUp: number;
+  totalDown: number;
 }
 
 export interface GeneExpressionsResponse {

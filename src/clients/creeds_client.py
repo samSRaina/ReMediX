@@ -37,17 +37,21 @@ def get_disease_signatures(disease) -> list:
 def build_disease_signature_table(disease: str) -> dict:
     """Build a flat table-friendly representation for one disease signature."""
     entry = _get_disease_signature_entry(disease)
+    up_genes = entry.get('up_genes', []) or []
+    down_genes = entry.get('down_genes', []) or []
 
     rows = []
-    for gene, score in entry.get('up_genes', []):
+    for gene, score in up_genes:
         rows.append([gene, score, 'up'])
-    for gene, score in entry.get('down_genes', []):
+    for gene, score in down_genes:
         rows.append([gene, score, 'down'])
 
     return {
         'disease': disease,
         'headers': ['Gene Symbol', 'Score', 'Direction'],
         'rows': rows,
+        'total_up': len(up_genes),
+        'total_down': len(down_genes),
     }
 
 

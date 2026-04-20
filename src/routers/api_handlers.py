@@ -172,6 +172,8 @@ async def get_disease_signature_table(disease: str, page: int = 1, page_size: in
         "pageSize": page_size,
         "total": total,
         "totalPages": total_pages,
+        "totalUp": int(payload.get("total_up", 0)),
+        "totalDown": int(payload.get("total_down", 0)),
     }
 
 

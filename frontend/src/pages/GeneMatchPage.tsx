@@ -31,6 +31,8 @@ export function GeneMatchPage() {
   const [matchResults, setMatchResults] = useState<GeneMatchItem[]>([]);
   const [score, setScore] = useState<FinalGeneScoreResponse | null>(null);
   const [table, setTable] = useState<DiseaseSignatureTableResponse | null>(null);
+  const [tablePage, setTablePage] = useState(1);
+  const tablePageSize = 100;
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +73,9 @@ export function GeneMatchPage() {
     async function loadTable() {
       setTableLoading(true);
       try {
-        const payload = await getDiseaseSignatureTable(disease, 1, 100);
+        const payload = await getDiseaseSignatureTable(disease, tablePage, tablePageSize);
         setTable(payload);
+        if (payload.page !== tablePage) setTablePage(payload.page);
       } catch (err) {
         setTable(null);
         setError(err instanceof Error ? err.message : 'Failed to load disease signature table');
@@ -81,7 +84,7 @@ export function GeneMatchPage() {
       }
     }
     void loadTable();
-  }, [disease]);
+  }, [disease, tablePage]);
 
   async function runMatch() {
     if (!disease || genes.length === 0) return;
@@ -122,7 +125,10 @@ export function GeneMatchPage() {
             <span className="text-sm font-medium">Target Disease</span>
             <input
               value={disease}
-              onChange={(event) => setDisease(event.target.value)}
+              onChange={(event) => {
+                setDisease(event.target.value);
+                setTablePage(1);
+              }}
               list="disease-list"
               placeholder="Select or type a disease"
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
@@ -176,6 +182,13 @@ export function GeneMatchPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Surface>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Match Results</h2>
+          {table ? (
+            <p className="mb-3 text-xs text-slate-600">
+              Total Up: <span className="font-semibold text-emerald-700">{table.totalUp.toLocaleString()}</span>
+              {' '}•{' '}
+              Total Down: <span className="font-semibold text-rose-700">{table.totalDown.toLocaleString()}</span>
+            </p>
+          ) : null}
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="animate-spin" size={16} />Matching genes...</div>
           ) : matchResults.length === 0 ? (
@@ -217,20 +230,44 @@ export function GeneMatchPage() {
           ) : !table || !table.data || table.data.length === 0 ? (
             <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No disease signature data loaded.</p>
           ) : (
-            <div className="table-shell">
-              <table className="table-ui">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <tr>{table.headers.map((h: string) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {table.data.map((row: Array<string | number>, idx: number) => (
-                    <tr key={`${row[0]}-${idx}`}>
-                      {row.map((cell: string | number, cidx: number) => <td key={`${idx}-${cidx}`} className="px-3 py-2">{String(cell)}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <p className="mb-3 text-xs text-slate-600">
+                Showing {(table.page - 1) * table.pageSize + 1}–{Math.min(table.page * table.pageSize, table.total)} of {table.total.toLocaleString()} rows
+              </p>
+              <div className="table-shell">
+                <table className="table-ui">
+                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>{table.headers.map((h: string) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {table.data.map((row: Array<string | number>, idx: number) => (
+                      <tr key={`${row[0]}-${idx}`}>
+                        {row.map((cell: string | number, cidx: number) => <td key={`${idx}-${cidx}`} className="px-3 py-2">{String(cell)}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {table.totalPages > 1 ? (
+                <div className="mt-3 flex items-center justify-between">
+                  <button
+                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
+                    disabled={table.page <= 1 || tableLoading}
+                    onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </button>
+                  <span className="text-sm text-slate-600">Page {table.page} / {table.totalPages}</span>
+                  <button
+                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
+                    disabled={table.page >= table.totalPages || tableLoading}
+                    onClick={() => setTablePage((p) => Math.min(table.totalPages, p + 1))}
+                  >
+                    Next
+                  </button>
+                </div>
+              ) : null}
+            </>
           )}
         </Surface>
       </div>
