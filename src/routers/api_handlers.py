@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from ..clients import chembl_client, creeds_client, drugbank_client, geneCards_client, pubchem_client
 from ..utils import final_gene_score
@@ -63,19 +63,23 @@ async def get_gene_match(genes: str, disease: str):
 
 
 async def get_final_gene_score(
+    request: Request,
     disease: Optional[str] = None,
     inchikey: Optional[str] = None,
-    inchiKey: Optional[str] = None,
 ):
     """Calculate final repurposing score using ChEMBL targets + CREEDS + disease signature."""
     if not disease or not disease.strip():
         raise HTTPException(status_code=400, detail="Disease parameter is required")
 
-    resolved_inchikey = (inchikey or inchiKey or "").strip()
+    fallback_inchikey = next(
+        (value for key, value in request.query_params.multi_items() if key.lower() == "inchikey"),
+        "",
+    )
+    resolved_inchikey = (inchikey or fallback_inchikey or "").strip()
     if not resolved_inchikey:
         raise HTTPException(
             status_code=400,
-            detail="InChIKey parameter is required (accepted query keys: 'inchikey' or 'inchiKey')",
+            detail="InChIKey parameter is required (query key: 'inchikey')",
         )
 
     try:
