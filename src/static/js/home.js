@@ -47,6 +47,17 @@ function setStoredInchiKey(inchiKey) {
     }
 }
 
+function extractInchiKey(payload) {
+    if (!payload || typeof payload !== 'object') return '';
+    const candidates = [payload.InChIKey, payload.inchiKey, payload.inchikey, payload.inchi_key];
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim()) {
+            return candidate.trim();
+        }
+    }
+    return '';
+}
+
 // Bioactivity table columns
 const BIOACTIVITY_COLUMNS = [
     'target_chembl_id',
@@ -118,6 +129,11 @@ async function fetchBioactivity(inchiKey, standardType) {
 function updateGeneMatchLink() {
     let link = document.getElementById('gene-match-link');
     if (currentGeneSet.length > 0) {
+        const resolvedInchiKey = currentInChIKey || getStoredInchiKey();
+        if (!resolvedInchiKey) {
+            if (link) link.style.display = 'none';
+            return;
+        }
         if (!link) {
             link = document.createElement('a');
             link.id = 'gene-match-link';
@@ -127,8 +143,7 @@ function updateGeneMatchLink() {
         const query = new URLSearchParams({
             genes: currentGeneSet.join(',')
         });
-        const resolvedInchiKey = currentInChIKey || getStoredInchiKey();
-        query.set('inchikey', resolvedInchiKey || '');
+        query.set('inchikey', resolvedInchiKey);
         link.href = `/geneMatch?${query.toString()}`;
         link.textContent = `Match ${currentGeneSet.length} gene(s) on next page →`;
         link.style.display = 'inline-block';
@@ -233,11 +248,12 @@ async function fetchProperties() {
         }
 
         const pubchemData = await responsePubchem.json();
+        const resolvedInchiKey = extractInchiKey(pubchemData);
 
         // Fetch DrugBank in parallel if InChIKey exists
         let drugbankData = null;
-        if (pubchemData.InChIKey) {
-            const responseDrugbank = await fetch(`/api/drugbank/inchikey/${pubchemData.InChIKey}/properties`);
+        if (resolvedInchiKey) {
+            const responseDrugbank = await fetch(`/api/drugbank/inchikey/${resolvedInchiKey}/properties`);
             if (responseDrugbank.ok) {
                 drugbankData = await responseDrugbank.json();
             }
@@ -252,8 +268,8 @@ async function fetchProperties() {
         }
 
         // Fetch bioactivity data if InChIKey exists
-        if (pubchemData.InChIKey) {
-            currentInChIKey = pubchemData.InChIKey;
+        if (resolvedInchiKey) {
+            currentInChIKey = resolvedInchiKey;
             setStoredInchiKey(currentInChIKey);
             fetchBioactivity(currentInChIKey, currentBioactivityType);
         } else {

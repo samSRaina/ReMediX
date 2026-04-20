@@ -3,11 +3,37 @@ const SIGNATURE_PAGE_SIZE = 100;
 const params = new URLSearchParams(window.location.search);
 const genesParam = params.get('genes');
 const diseaseParam = (params.get('disease') || '').trim();
-const inchiKeyParam = (params.get('inchikey') || params.get('inchiKey') || '').trim();
 const INCHIKEY_STORAGE_KEY = 'lastInchiKey';
 const geneList = genesParam ? genesParam.split(',').filter(g => g.trim()) : [];
 let selectedDisease = diseaseParam;
-let selectedInchiKey = inchiKeyParam;
+let selectedInchiKey = '';
+
+function normalizeInchiKeyParamName(name) {
+    return String(name || '').toLowerCase().replace(/_/g, '');
+}
+
+function getInchiKeyFromParams(searchParams) {
+    for (const [key, value] of searchParams.entries()) {
+        if (normalizeInchiKeyParamName(key) === 'inchikey' && value.trim()) return value.trim();
+    }
+    return '';
+}
+
+function canonicalizeInchiKeyParam(searchParams, inchiKey) {
+    const next = new URLSearchParams(searchParams);
+    for (const key of Array.from(next.keys())) {
+        if (key !== 'inchikey' && normalizeInchiKeyParamName(key) === 'inchikey') {
+            next.delete(key);
+        }
+    }
+    next.set('inchikey', inchiKey);
+    if (next.toString() === searchParams.toString()) return false;
+    const nextQuery = next.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}?${nextQuery}`);
+    return true;
+}
+
+selectedInchiKey = getInchiKeyFromParams(params);
 
 if (!selectedInchiKey) {
     try {
@@ -15,11 +41,10 @@ if (!selectedInchiKey) {
     } catch (_) {
         selectedInchiKey = '';
     }
-    if (selectedInchiKey) {
-        params.set('inchikey', selectedInchiKey);
-        const nextQuery = params.toString();
-        window.history.replaceState({}, '', `${window.location.pathname}?${nextQuery}`);
-    }
+}
+
+if (selectedInchiKey) {
+    canonicalizeInchiKeyParam(params, selectedInchiKey);
 }
 
 const tbody = document.getElementById('match-tbody');
