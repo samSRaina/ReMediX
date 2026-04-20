@@ -62,14 +62,10 @@ async def get_gene_match(genes: str, disease: str):
     return creeds_client.match_gene_set(gene_list, disease)
 
 
-async def get_final_gene_score(genes: str, disease: str):
-    """
-    Calculate final score based on non-ambiguous directional matches.
-    Sum 'Final Score' from 'Final Gene Score' sheet for classified genes,
-    then divide by predefined DIVISOR.
-    """
+async def get_final_gene_score(inchikey: str, disease: str):
+    """Calculate final repurposing score using ChEMBL targets + CREEDS + disease signature."""
     try:
-        return final_gene_score.calculate_final_score(genes, disease)
+        return final_gene_score.calculate_final_score(inchikey, disease)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -171,4 +167,3 @@ async def get_available_diseases():
         return {"diseases": diseases}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load diseases: {str(e)}")
-

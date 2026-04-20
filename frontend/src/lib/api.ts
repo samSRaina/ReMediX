@@ -54,8 +54,8 @@ export function getGeneMatch(genes: string, disease: string) {
   return apiGet<GeneMatchResponse>(`/api/match?${query.toString()}`);
 }
 
-export function getFinalGeneScore(genes: string, disease: string) {
-  const query = new URLSearchParams({ genes, disease });
+export function getFinalGeneScore(inchiKey: string, disease: string) {
+  const query = new URLSearchParams({ inchikey: inchiKey, disease });
   return apiGet<FinalGeneScoreResponse>(`/api/finalGeneScore?${query.toString()}`);
 }
 
@@ -78,4 +78,3 @@ export function getExcelSheetPage(name: string, page = 1, pageSize = 100) {
   const query = new URLSearchParams({ name, page: String(page), page_size: String(pageSize) });
   return apiGet<ExcelSheetResponse>(`/api/excelData/sheet?${query.toString()}`);
 }
-

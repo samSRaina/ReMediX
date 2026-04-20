@@ -46,14 +46,15 @@ export interface BioactivityResponse {
 
 export interface GeneMatchItem {
   gene: string;
-  up_genes: Array<{ gene: string; drug_score: number; disease_score: number }>;
-  down_genes: Array<{ gene: string; drug_score: number; disease_score: number }>;
-  total_up: number;
-  total_down: number;
+  up_count: number;
+  down_count: number;
   ratio: number | null;
-  direction: 'up' | 'down' | 'ambiguous' | null;
-  threshold: number;
-  error: string | null;
+  direction: 'UP' | 'DOWN' | 'AMBIGUOUS' | null;
+  classification: string;
+  effect: string;
+  disease_direction?: string | null;
+  disease_score?: number | null;
+  skip_reason?: string | null;
 }
 
 export interface GeneMatchResponse {
@@ -63,10 +64,32 @@ export interface GeneMatchResponse {
 }
 
 export interface FinalGeneScoreResponse {
-  score: number;
-  total_sum?: number;
-  offset_divisor?: number;
-  genes_counted?: string[];
+  drug: string;
+  disease: string;
+  numerator: number;
+  denominator: number;
+  raw_score: number;
+  promiscuity_penalty: number;
+  target_count: number;
+  final_score: number;
+  category: 'High' | 'Moderate' | 'Low';
+  beneficial_genes: Array<{ gene: string; contribution: number }>;
+  gene_breakdown: Array<{
+    gene: string;
+    standard_type: string;
+    drug_effect: string;
+    up_count: number;
+    down_count: number;
+    creeds_ratio: number | null;
+    creeds_direction: string | null;
+    disease_direction_source: string | null;
+    disease_direction: string | null;
+    disease_signature_score: number | null;
+    weight: number;
+    classification: string;
+    contribution: number;
+    skip_reason: string | null;
+  }>;
 }
 
 export interface DiseaseSignatureTableResponse {
@@ -100,4 +123,3 @@ export interface ExcelSheetResponse {
   total: number;
   totalPages: number;
 }
-

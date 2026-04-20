@@ -9,6 +9,7 @@ export function GeneMatchPage() {
   const [searchParams] = useSearchParams();
   const genes = useMemo(() => (searchParams.get('genes') || '').split(',').map((g: string) => g.trim()).filter(Boolean), [searchParams]);
   const initialDisease = (searchParams.get('disease') || '').trim();
+  const inchiKey = (searchParams.get('inchikey') || '').trim();
 
   const [disease, setDisease] = useState(initialDisease);
   const [diseases, setDiseases] = useState<string[]>([]);
@@ -68,11 +69,11 @@ export function GeneMatchPage() {
   }
 
   async function calculateScore() {
-    if (!disease || genes.length === 0) return;
+    if (!disease || !inchiKey) return;
     setLoading(true);
     setError(null);
     try {
-      const payload = await getFinalGeneScore(genes.join(','), disease);
+      const payload = await getFinalGeneScore(inchiKey, disease);
       setScore(payload);
     } catch (err) {
       setScore(null);
@@ -113,7 +114,7 @@ export function GeneMatchPage() {
           <button
             type="button"
             onClick={() => void calculateScore()}
-            disabled={loading || !disease || genes.length === 0 || matchResults.length === 0}
+            disabled={loading || !disease || !inchiKey}
             className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
           >
             Get Score
@@ -124,12 +125,16 @@ export function GeneMatchPage() {
           Gene set: <span className="font-semibold">{genes.length}</span>{' '}
           {genes.length > 0 ? `(${genes.slice(0, 8).join(', ')}${genes.length > 8 ? ', ...' : ''})` : '(none provided)'}
         </p>
+        <p className="mt-1 text-xs text-slate-500">InChIKey: {inchiKey || 'missing'}</p>
 
         {score ? (
           <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 p-4">
             <p className="text-sm font-semibold text-cyan-900">Re-purposing Score</p>
-            <p className="text-2xl font-bold text-cyan-800">{score.score.toFixed(6)}</p>
-            <p className="text-xs text-cyan-700">Based on {score.genes_counted?.length ?? 0} classified genes</p>
+            <p className="text-2xl font-bold text-cyan-800">{score.final_score.toFixed(6)}</p>
+            <p className="text-xs text-cyan-700">
+              Category: {score.category} • Numerator: {score.numerator.toFixed(6)} • Denominator: {score.denominator.toFixed(6)} •
+              Penalty: {score.promiscuity_penalty.toFixed(6)}
+            </p>
           </div>
         ) : null}
 
@@ -147,27 +152,29 @@ export function GeneMatchPage() {
             <div className="table-shell">
               <table className="table-ui">
                 <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Gene</th>
-                    <th className="px-3 py-2">Total Up</th>
-                    <th className="px-3 py-2">Total Down</th>
-                    <th className="px-3 py-2">Ratio</th>
-                    <th className="px-3 py-2">Direction</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matchResults.map((row) => (
-                    <tr key={row.gene}>
-                      <td className="px-3 py-2 font-medium">{row.gene}</td>
-                      <td className="px-3 py-2 text-emerald-700">{row.total_up}</td>
-                      <td className="px-3 py-2 text-rose-700">{row.total_down}</td>
-                      <td className="px-3 py-2">{typeof row.ratio === 'number' ? row.ratio.toFixed(3) : 'N/A'}</td>
-                      <td className="px-3 py-2">{row.direction ?? row.error ?? 'N/A'}</td>
+                    <tr>
+                      <th className="px-3 py-2">Gene</th>
+                      <th className="px-3 py-2">Up Count</th>
+                      <th className="px-3 py-2">Down Count</th>
+                      <th className="px-3 py-2">Ratio</th>
+                      <th className="px-3 py-2">Direction</th>
+                      <th className="px-3 py-2">Effect</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {matchResults.map((row) => (
+                      <tr key={row.gene}>
+                        <td className="px-3 py-2 font-medium">{row.gene}</td>
+                        <td className="px-3 py-2 text-emerald-700">{row.up_count}</td>
+                        <td className="px-3 py-2 text-rose-700">{row.down_count}</td>
+                        <td className="px-3 py-2">{typeof row.ratio === 'number' ? row.ratio.toFixed(3) : 'N/A'}</td>
+                        <td className="px-3 py-2">{row.direction ?? row.classification ?? 'N/A'}</td>
+                        <td className="px-3 py-2">{row.effect ?? row.skip_reason ?? 'N/A'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
           )}
         </Surface>
 
@@ -198,5 +205,4 @@ export function GeneMatchPage() {
     </AppLayout>
   );
 }
-
 

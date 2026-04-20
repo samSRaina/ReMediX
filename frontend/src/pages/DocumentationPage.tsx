@@ -7,7 +7,7 @@ const docs = [
   },
   {
     title: 'Data Sources',
-    items: ['PubChem', 'ChEMBL', 'DrugBank', 'CREEDS', 'Local scoring sheet: src/data/data_set.xlsx'],
+    items: ['PubChem', 'ChEMBL', 'DrugBank', 'CREEDS', 'Disease signatures: src/data/CREEDS', 'Gene weight config table: src/data/gene_weight_config.json'],
   },
   {
     title: 'Debug Utilities',
@@ -45,4 +45,3 @@ export function DocumentationPage() {
     </AppLayout>
   );
 }
-

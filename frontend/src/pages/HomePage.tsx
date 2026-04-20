@@ -211,7 +211,7 @@ export function HomePage() {
 
             {geneSet.length > 0 ? (
               <Link
-                to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}`}
+                to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}&inchikey=${encodeURIComponent(currentInchiKey)}`}
                 className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
               >
                 Open Gene Match ({geneSet.length})
@@ -351,4 +351,3 @@ export function HomePage() {
     </AppLayout>
   );
 }
-

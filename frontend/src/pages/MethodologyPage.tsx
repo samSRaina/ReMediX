@@ -6,16 +6,16 @@ const STEPS = [
     description: 'Resolve user input into canonical chemistry metadata and collect known target evidence.',
   },
   {
-    title: '2. Perturbation-direction filtering',
-    description: 'Estimate UP/DOWN tendency per target from single gene perturbations and remove ambiguous targets.',
+    title: '2. CREEDS ambiguity filtering',
+    description: 'Compute UP/DOWN dominance ratio per target and skip genes with ratio < 1.2.',
   },
   {
-    title: '3. Disease overlap matching',
-    description: 'Compare directional target effects against disease signature direction to classify beneficial vs harmful overlap.',
+    title: '3. Direction + effect classification',
+    description: 'Use disease signature direction (priority) with ChEMBL effect type (IC50/KI inhibitor, AC50/EC50 activator).',
   },
   {
-    title: '4. Therapeutic effect scoring',
-    description: 'Aggregate matched disease-signature values into a normalized final score between 0 and 1.',
+    title: '4. Final therapeutic score',
+    description: 'Sum beneficial signature scores, normalize by cached disease denominator, apply promiscuity penalty, scale by ×10, and cap at 1.0.',
   },
 ];
 
@@ -43,4 +43,3 @@ export function MethodologyPage() {
     </AppLayout>
   );
 }
-
