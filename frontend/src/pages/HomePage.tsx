@@ -59,6 +59,14 @@ export function HomePage() {
   const workflowSectionRef = useRef<HTMLElement | null>(null);
 
   const currentInchiKey = useMemo(() => (pubchemData ? extractInchiKey(pubchemData) : ''), [pubchemData]);
+  const lastStoredInchiKey = useMemo(() => {
+    try {
+      return (window.localStorage.getItem(LAST_INCHIKEY_STORAGE_KEY) || '').trim();
+    } catch {
+      return '';
+    }
+  }, [currentInchiKey]);
+  const geneMatchInchiKey = currentInchiKey || lastStoredInchiKey;
 
   useEffect(() => {
     if (!currentInchiKey) return;
@@ -224,12 +232,12 @@ export function HomePage() {
               {isSearching ? 'Searching...' : 'Fetch Compound Profile'}
             </button>
 
-            {geneSet.length > 0 && currentInchiKey ? (
+            {geneMatchInchiKey ? (
               <Link
-                to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}&inchikey=${encodeURIComponent(currentInchiKey)}`}
+                to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}&inchikey=${encodeURIComponent(geneMatchInchiKey)}`}
                 className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
               >
-                Open Gene Match ({geneSet.length})
+                Open Gene Match{geneSet.length > 0 ? ` (${geneSet.length})` : ''}
               </Link>
             ) : null}
           </div>

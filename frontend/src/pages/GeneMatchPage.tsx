@@ -31,8 +31,7 @@ export function GeneMatchPage() {
   const [matchResults, setMatchResults] = useState<GeneMatchItem[]>([]);
   const [score, setScore] = useState<FinalGeneScoreResponse | null>(null);
   const [table, setTable] = useState<DiseaseSignatureTableResponse | null>(null);
-  const [tablePage, setTablePage] = useState(1);
-  const tablePageSize = 100;
+  const tablePageSize = 100000;
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,9 +72,8 @@ export function GeneMatchPage() {
     async function loadTable() {
       setTableLoading(true);
       try {
-        const payload = await getDiseaseSignatureTable(disease, tablePage, tablePageSize);
+        const payload = await getDiseaseSignatureTable(disease, 1, tablePageSize);
         setTable(payload);
-        if (payload.page !== tablePage) setTablePage(payload.page);
       } catch (err) {
         setTable(null);
         setError(err instanceof Error ? err.message : 'Failed to load disease signature table');
@@ -84,7 +82,7 @@ export function GeneMatchPage() {
       }
     }
     void loadTable();
-  }, [disease, tablePage]);
+  }, [disease]);
 
   async function runMatch() {
     if (!disease || genes.length === 0) return;
@@ -127,7 +125,6 @@ export function GeneMatchPage() {
               value={disease}
               onChange={(event) => {
                 setDisease(event.target.value);
-                setTablePage(1);
               }}
               list="disease-list"
               placeholder="Select or type a disease"
@@ -232,7 +229,7 @@ export function GeneMatchPage() {
           ) : (
             <>
               <p className="mb-3 text-xs text-slate-600">
-                Showing {(table.page - 1) * table.pageSize + 1}–{Math.min(table.page * table.pageSize, table.total)} of {table.total.toLocaleString()} rows
+                Showing all {table.total.toLocaleString()} rows (Up: {table.totalUp.toLocaleString()} • Down: {table.totalDown.toLocaleString()})
               </p>
               <div className="table-shell">
                 <table className="table-ui">
@@ -248,25 +245,6 @@ export function GeneMatchPage() {
                   </tbody>
                 </table>
               </div>
-              {table.totalPages > 1 ? (
-                <div className="mt-3 flex items-center justify-between">
-                  <button
-                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
-                    disabled={table.page <= 1 || tableLoading}
-                    onClick={() => setTablePage((p) => Math.max(1, p - 1))}
-                  >
-                    Prev
-                  </button>
-                  <span className="text-sm text-slate-600">Page {table.page} / {table.totalPages}</span>
-                  <button
-                    className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50 disabled:opacity-50"
-                    disabled={table.page >= table.totalPages || tableLoading}
-                    onClick={() => setTablePage((p) => Math.min(table.totalPages, p + 1))}
-                  >
-                    Next
-                  </button>
-                </div>
-              ) : null}
             </>
           )}
         </Surface>
