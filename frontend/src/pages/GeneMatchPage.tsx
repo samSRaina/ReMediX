@@ -126,6 +126,7 @@ export function GeneMatchPage() {
           {genes.length > 0 ? `(${genes.slice(0, 8).join(', ')}${genes.length > 8 ? ', ...' : ''})` : '(none provided)'}
         </p>
         <p className="mt-1 text-xs text-slate-500">InChIKey: {inchiKey || 'missing'}</p>
+        {!inchiKey ? <p className="mt-1 text-xs text-amber-700">Score calculation requires an InChIKey. Start from compound search to populate it.</p> : null}
 
         {score ? (
           <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 p-4">
@@ -205,4 +206,3 @@ export function GeneMatchPage() {
     </AppLayout>
   );
 }
-

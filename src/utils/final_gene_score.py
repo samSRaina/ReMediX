@@ -11,7 +11,7 @@ import openpyxl
 from ..clients import chembl_client, creeds_client
 
 _EXCLUDED_SHEETS = ["Reactome"]
-_AMBIGUITY_THRESHOLD = 1.2
+_CREEDS_AMBIGUITY_RATIO_THRESHOLD = 1.2
 _PROMISCUITY_COEFFICIENT = 0.1
 _STANDARD_TYPE_EFFECT = {
     "IC50": "INHIBITOR",
@@ -105,7 +105,7 @@ def _resolve_creeds_direction(gene: str, perturbation_index: dict[str, dict]) ->
     else:
         ratio = 0.0
 
-    ambiguous = ratio < _AMBIGUITY_THRESHOLD
+    ambiguous = ratio < _CREEDS_AMBIGUITY_RATIO_THRESHOLD
     if up_count == down_count:
         ambiguous = True
 
@@ -230,7 +230,7 @@ def calculate_final_score(inchikey: str, disease: str) -> dict:
         row = {
             "gene": gene,
             "standard_type": activity["standard_type"],
-            "drug_effect": activity["drug_effect"],
+            "drug_effect": activity.get("drug_effect", "UNKNOWN"),
             "up_count": creeds_data["up_count"],
             "down_count": creeds_data["down_count"],
             "creeds_ratio": None if math.isinf(creeds_data["ratio"]) else round(creeds_data["ratio"], 4),
