@@ -19,6 +19,7 @@ _STANDARD_TYPE_EFFECT = {
     "AC50": "ACTIVATOR",
     "EC50": "ACTIVATOR",
 }
+_STANDARD_TYPE_PRIORITY = {"IC50": 0, "KI": 1, "AC50": 2, "EC50": 3}
 _WEIGHT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "data" / "gene_weight_config.json"
 
 
@@ -97,7 +98,12 @@ def _resolve_creeds_direction(gene: str, perturbation_index: dict[str, dict]) ->
     down_count = int(counts.get("down_count", 0) or 0)
     minimum = min(up_count, down_count)
     maximum = max(up_count, down_count)
-    ratio = float(maximum) / float(minimum) if minimum > 0 else (float("inf") if maximum > 0 else 0.0)
+    if minimum > 0:
+        ratio = float(maximum) / float(minimum)
+    elif maximum > 0:
+        ratio = float("inf")
+    else:
+        ratio = 0.0
 
     ambiguous = ratio < _AMBIGUITY_THRESHOLD
     if up_count == down_count:
@@ -146,8 +152,9 @@ def _pick_best_activity_per_gene(activities: list[dict]) -> dict[str, dict]:
             continue
 
         if potency == current["standard_value"]:
-            rank = {"IC50": 0, "KI": 1, "AC50": 2, "EC50": 3}
-            if rank.get(standard_type, 99) < rank.get(current["standard_type"], 99):
+            if _STANDARD_TYPE_PRIORITY.get(standard_type, 99) < _STANDARD_TYPE_PRIORITY.get(
+                current["standard_type"], 99
+            ):
                 supported[gene] = candidate
 
     return supported
@@ -173,6 +180,12 @@ def _categorize_score(final_score: float) -> str:
     if 0.02 <= final_score <= 0.05:
         return "Moderate"
     return "Low"
+
+
+def _calculate_promiscuity_penalty(target_count: int) -> float:
+    if target_count <= 1:
+        return 1.0
+    return 1.0 / (1.0 + (_PROMISCUITY_COEFFICIENT * math.log(target_count)))
 
 
 def calculate_final_score(inchikey: str, disease: str) -> dict:
@@ -277,7 +290,7 @@ def calculate_final_score(inchikey: str, disease: str) -> dict:
 
     raw_score = numerator / denominator
     target_count = len(unique_genes)
-    penalty = 1.0 if target_count <= 1 else 1.0 / (1.0 + (_PROMISCUITY_COEFFICIENT * math.log(target_count)))
+    penalty = _calculate_promiscuity_penalty(target_count)
     final_score = min(raw_score * penalty * 10.0, 1.0)
 
     return {
