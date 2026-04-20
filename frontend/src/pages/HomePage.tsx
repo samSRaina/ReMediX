@@ -9,6 +9,16 @@ import { AppLayout } from '../components/Layout';
 
 type SortKey = keyof BioactivityRecord;
 type SortDirection = 'asc' | 'desc';
+const LAST_INCHIKEY_STORAGE_KEY = 'lastInchiKey';
+
+function extractInchiKey(compound: PubChemCompound): string {
+  const payload = compound as PubChemCompound & Record<string, unknown>;
+  const candidates = [payload.InChIKey, payload.inchiKey, payload.inchikey, payload.inchi_key];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return '';
+}
 
 const BIOACTIVITY_COLUMNS: Array<{ key: SortKey; label: string }> = [
   { key: 'target_chembl_id', label: 'Target ChEMBL ID' },
@@ -116,13 +126,13 @@ export function HomePage() {
       }
       setPubchemData(compound);
 
-      const inchiKey = compound.InChIKey;
+      const inchiKey = extractInchiKey(compound);
       if (!inchiKey) {
         setErrorMessage('PubChem response is missing InChIKey for this compound.');
         return;
       }
       try {
-        window.localStorage.setItem('lastInchiKey', inchiKey);
+        window.localStorage.setItem(LAST_INCHIKEY_STORAGE_KEY, inchiKey);
       } catch {
         // ignore storage failures
       }

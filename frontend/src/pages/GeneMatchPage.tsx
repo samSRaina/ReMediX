@@ -5,15 +5,22 @@ import { AppLayout, Surface } from '../components/Layout';
 import { getDiseaseSignatureTable, getDiseases, getFinalGeneScore, getGeneMatch } from '../lib/api';
 import type { DiseaseSignatureTableResponse, FinalGeneScoreResponse, GeneMatchItem } from '../types/api';
 
+const LAST_INCHIKEY_STORAGE_KEY = 'lastInchiKey';
+
 export function GeneMatchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const genes = useMemo(() => (searchParams.get('genes') || '').split(',').map((g: string) => g.trim()).filter(Boolean), [searchParams]);
   const initialDisease = (searchParams.get('disease') || '').trim();
-  const queryInchiKey = (searchParams.get('inchikey') || '').trim();
+  const queryInchiKey = useMemo(() => {
+    for (const [key, value] of searchParams.entries()) {
+      if (key.toLowerCase().replace(/_/g, '') === 'inchikey' && value.trim()) return value.trim();
+    }
+    return '';
+  }, [searchParams]);
   const inchiKey = useMemo(() => {
     if (queryInchiKey) return queryInchiKey;
     try {
-      return (window.localStorage.getItem('lastInchiKey') || '').trim();
+      return (window.localStorage.getItem(LAST_INCHIKEY_STORAGE_KEY) || '').trim();
     } catch {
       return '';
     }
@@ -29,11 +36,20 @@ export function GeneMatchPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (queryInchiKey || !inchiKey) return;
+    if (!inchiKey) return;
+    try {
+      window.localStorage.setItem(LAST_INCHIKEY_STORAGE_KEY, inchiKey);
+    } catch {
+      // ignore storage failures
+    }
     const next = new URLSearchParams(searchParams);
+    for (const key of Array.from(next.keys())) {
+      if (key !== 'inchikey' && key.toLowerCase().replace(/_/g, '') === 'inchikey') next.delete(key);
+    }
     next.set('inchikey', inchiKey);
+    if (next.toString() === searchParams.toString()) return;
     setSearchParams(next, { replace: true });
-  }, [queryInchiKey, inchiKey, searchParams, setSearchParams]);
+  }, [inchiKey, searchParams, setSearchParams]);
 
   useEffect(() => {
     async function loadDiseases() {
