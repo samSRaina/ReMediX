@@ -13,14 +13,20 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
+interface FastApiValidationDetailItem {
+  loc?: unknown;
+  msg?: unknown;
+}
+
 function formatApiDetail(detail: unknown): string | null {
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) {
     const parts = detail
       .map((item) => {
         if (!item || typeof item !== 'object') return null;
-        const loc = Array.isArray((item as { loc?: unknown }).loc) ? (item as { loc: unknown[] }).loc.join('.') : '';
-        const msg = typeof (item as { msg?: unknown }).msg === 'string' ? (item as { msg: string }).msg : '';
+        const entry = item as FastApiValidationDetailItem;
+        const loc = Array.isArray(entry.loc) ? entry.loc.join('.') : '';
+        const msg = typeof entry.msg === 'string' ? entry.msg : '';
         if (!loc && !msg) return null;
         return loc ? `${loc}: ${msg}` : msg;
       })
