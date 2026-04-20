@@ -35,7 +35,7 @@ Set-Location "D:\PycharmProjects\drugRepurpose-app"
 uv run python run.py
 ```
 
-Vite proxies `/api`, `/data`, and `/static` requests to the FastAPI server.
+Vite proxies `/api` and `/data` requests to the FastAPI server.
 
 ## Build
 ```powershell
@@ -48,10 +48,9 @@ The build output is created in `frontend/dist`.
 ## Notes
 - If your backend runs on a different host/port, set `VITE_API_BASE_URL`.
 - API typings are defined in `src/types/api.ts` and fetch wrappers in `src/lib/api.ts`.
-- This frontend is intended to replace the old Jinja/vanilla-JS page UX.
+- The frontend is React-only and lives in `/frontend`; legacy Jinja/vanilla-JS page assets are removed.
 
 ## run in production
 ```powershell
 fastapi run
 ```
-
