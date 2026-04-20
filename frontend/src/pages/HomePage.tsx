@@ -121,6 +121,11 @@ export function HomePage() {
         setErrorMessage('PubChem response is missing InChIKey for this compound.');
         return;
       }
+      try {
+        window.localStorage.setItem('lastInchiKey', inchiKey);
+      } catch {
+        // ignore storage failures
+      }
 
       // Do not block curated pharmacology behind ChEMBL loading.
       // Bioactivity is fetched by the currentInchiKey useEffect.

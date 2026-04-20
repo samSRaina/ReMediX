@@ -4,9 +4,23 @@ const params = new URLSearchParams(window.location.search);
 const genesParam = params.get('genes');
 const diseaseParam = (params.get('disease') || '').trim();
 const inchiKeyParam = (params.get('inchikey') || params.get('inchiKey') || '').trim();
+const INCHIKEY_STORAGE_KEY = 'lastInchiKey';
 const geneList = genesParam ? genesParam.split(',').filter(g => g.trim()) : [];
 let selectedDisease = diseaseParam;
-const selectedInchiKey = inchiKeyParam;
+let selectedInchiKey = inchiKeyParam;
+
+if (!selectedInchiKey) {
+    try {
+        selectedInchiKey = (window.localStorage.getItem(INCHIKEY_STORAGE_KEY) || '').trim();
+    } catch (_) {
+        selectedInchiKey = '';
+    }
+    if (selectedInchiKey) {
+        params.set('inchikey', selectedInchiKey);
+        const nextQuery = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}?${nextQuery}`);
+    }
+}
 
 const tbody = document.getElementById('match-tbody');
 const emptyState = document.getElementById('match-empty');

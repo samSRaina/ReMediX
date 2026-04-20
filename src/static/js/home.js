@@ -25,6 +25,27 @@ const DRUGBANK_FIELDS = {
 let currentInChIKey = null;
 let currentBioactivityType = 'IC50';
 let currentGeneSet = [];
+const INCHIKEY_STORAGE_KEY = 'lastInchiKey';
+
+function getStoredInchiKey() {
+    try {
+        return (window.localStorage.getItem(INCHIKEY_STORAGE_KEY) || '').trim();
+    } catch (_) {
+        return '';
+    }
+}
+
+function setStoredInchiKey(inchiKey) {
+    try {
+        if (inchiKey) {
+            window.localStorage.setItem(INCHIKEY_STORAGE_KEY, inchiKey);
+        } else {
+            window.localStorage.removeItem(INCHIKEY_STORAGE_KEY);
+        }
+    } catch (_) {
+        // ignore storage errors
+    }
+}
 
 // Bioactivity table columns
 const BIOACTIVITY_COLUMNS = [
@@ -106,9 +127,8 @@ function updateGeneMatchLink() {
         const query = new URLSearchParams({
             genes: currentGeneSet.join(',')
         });
-        if (currentInChIKey) {
-            query.set('inchikey', currentInChIKey);
-        }
+        const resolvedInchiKey = currentInChIKey || getStoredInchiKey();
+        query.set('inchikey', resolvedInchiKey || '');
         link.href = `/geneMatch?${query.toString()}`;
         link.textContent = `Match ${currentGeneSet.length} gene(s) on next page →`;
         link.style.display = 'inline-block';
@@ -234,8 +254,10 @@ async function fetchProperties() {
         // Fetch bioactivity data if InChIKey exists
         if (pubchemData.InChIKey) {
             currentInChIKey = pubchemData.InChIKey;
+            setStoredInchiKey(currentInChIKey);
             fetchBioactivity(currentInChIKey, currentBioactivityType);
         } else {
+            setStoredInchiKey('');
             clearBioactivity();
         }
 

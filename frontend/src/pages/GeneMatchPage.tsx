@@ -6,10 +6,18 @@ import { getDiseaseSignatureTable, getDiseases, getFinalGeneScore, getGeneMatch 
 import type { DiseaseSignatureTableResponse, FinalGeneScoreResponse, GeneMatchItem } from '../types/api';
 
 export function GeneMatchPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const genes = useMemo(() => (searchParams.get('genes') || '').split(',').map((g: string) => g.trim()).filter(Boolean), [searchParams]);
   const initialDisease = (searchParams.get('disease') || '').trim();
-  const inchiKey = (searchParams.get('inchikey') || '').trim();
+  const queryInchiKey = (searchParams.get('inchikey') || '').trim();
+  const inchiKey = useMemo(() => {
+    if (queryInchiKey) return queryInchiKey;
+    try {
+      return (window.localStorage.getItem('lastInchiKey') || '').trim();
+    } catch {
+      return '';
+    }
+  }, [queryInchiKey]);
 
   const [disease, setDisease] = useState(initialDisease);
   const [diseases, setDiseases] = useState<string[]>([]);
@@ -19,6 +27,13 @@ export function GeneMatchPage() {
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (queryInchiKey || !inchiKey) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('inchikey', inchiKey);
+    setSearchParams(next, { replace: true });
+  }, [queryInchiKey, inchiKey, searchParams, setSearchParams]);
 
   useEffect(() => {
     async function loadDiseases() {
