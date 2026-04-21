@@ -25,7 +25,7 @@ const BIOACTIVITY_COLUMNS: Array<{ key: SortKey; label: string }> = [
 
 const NAME_PLACEHOLDER = 'Aspirin';
 const SMILES_PLACEHOLDER = 'CC(=O)OC1=CC=CC=C1C(=O)O';
-const SMILES_INVALID_PATTERN = /[.\[]/;
+const SMILES_INVALID_PATTERN = /[\.\[]/;
 const CHEMICAL_IDENTITY_ORDER = [
   'CID',
   'SMILES',
