@@ -2,20 +2,31 @@ import { AppLayout, Surface } from '../components/Layout';
 
 const STEPS = [
   {
-    title: '1. Compound and target discovery',
-    description: 'Resolve user input into canonical chemistry metadata and collect known target evidence.',
+    title: 'Input Validation & Molecular Standardization',
+    description: 'Resolve user input (SMILES/compound name) into a canonical chemical structure.\n' +
+        'Filter out salts, mixtures, and non-biological entities to ensure only valid parent molecules proceed.',
   },
   {
-    title: '2. Perturbation-direction filtering',
-    description: 'Estimate UP/DOWN tendency per target from single gene perturbations and remove ambiguous targets.',
+    title: 'Compound Annotation & Target Profiling\n',
+    description: 'Retrieve chemical identity and pharmacological data via PubChem, DrugBank, and ChEMBL APIs.\n' +
+        'Generate a drug–target gene list using IC₅₀ / Ki / AC₅₀ bioactivity data mapped to gene symbols and UniProt IDs.',
   },
   {
-    title: '3. Disease overlap matching',
-    description: 'Compare directional target effects against disease signature direction to classify beneficial vs harmful overlap.',
+    title: 'Perturbation Direction Mapping \n',
+    description: 'Determine whether each target gene is upregulated or downregulated in disease using CREEDS.\n' +
+        'Filter out ambiguous genes and retain only directionally confident targets.',
   },
   {
-    title: '4. Therapeutic effect scoring',
-    description: 'Aggregate matched disease-signature values into a normalized final score between 0 and 1.',
+    title: 'Disease Signature Integration & Network Context\n',
+    description: 'Compare drug targets against a weighted disease molecular signature\n' +
+        '(built from GeneCards, GEO, Reactome, Open Targets).\n' +
+        'Incorporate PPI network context (STRING/Cytoscape) to identify biologically relevant overlaps',
+  },
+    {
+    title: 'Therapeutic Relevance Scoring\n',
+    description: 'Classify interactions as beneficial or harmful based on transcriptomic reversal\n' +
+        'Compute a final normalized score (0–1) using weighted gene contributions and target selectivity\n' +
+        'delivering an interpretable drug–disease relevance output',
   },
 ];
 
@@ -25,7 +36,7 @@ export function MethodologyPage() {
       <section className="mx-auto max-w-5xl space-y-6">
         <Surface>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Methodology</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">How RepurposeIQ computes directional therapeutic effect</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">How ReMediX computes directional therapeutic effect</h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
             The pipeline keeps each computational step observable so you can inspect exactly where a compound gains or loses confidence.
           </p>

@@ -2,16 +2,8 @@ import { AppLayout, Surface } from '../components/Layout';
 
 const docs = [
   {
-    title: 'API Endpoints',
-    items: ['/api/compound/name', '/api/compound/smile', '/api/chembl/bioactivity', '/api/match', '/api/finalGeneScore'],
-  },
-  {
     title: 'Data Sources',
-    items: ['PubChem', 'ChEMBL', 'DrugBank', 'CREEDS', 'Local scoring sheet: src/data/data_set.xlsx'],
-  },
-  {
-    title: 'Debug Utilities',
-    items: ['gc/debug_creeds.py', 'gc/debug_final_score.py', 'gc/verify_bosentan.py', 'gc/verify_cetirizine.py'],
+    items: ['PubChem', 'DrugBank', 'ChEMBL','UniProt', 'CREEDS', 'GeneCards', 'GEO', 'Reactome', 'OpenTargets' ],
   },
 ];
 
@@ -21,9 +13,9 @@ export function DocumentationPage() {
       <section className="mx-auto max-w-5xl space-y-6">
         <Surface>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Documentation</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Integration and usage references</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Usage references</h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-            This page keeps implementation details close to the product flow so users and developers can verify data handoff points quickly.
+            This page keeps implementation details close to the product flow so users can verify data handoff points quickly.
           </p>
         </Surface>
 

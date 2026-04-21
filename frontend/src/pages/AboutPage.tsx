@@ -5,10 +5,10 @@ export function AboutPage() {
     <AppLayout>
       <section className="mx-auto max-w-5xl space-y-6">
         <Surface>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">About RepurposeIQ</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">About ReMedix</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Disease-aware drug repurposing for translational teams</h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-            RepurposeIQ combines public chemistry, target, perturbation, and disease-signature data to highlight compounds with
+            ReMediX combines public chemistry, target, perturbation, and disease-signature data to highlight compounds with
             beneficial reversal potential. The workflow is designed for fast hypothesis generation while staying traceable to source datasets.
           </p>
         </Surface>

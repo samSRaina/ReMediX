@@ -142,12 +142,12 @@ export function HomePage() {
   }
 
   return (
-    <AppLayout fullWidth title="VascuMap" subtitle="Map molecular signals to therapeutic direction">
+    <AppLayout fullWidth title="ReMedix" subtitle="Map molecular signals to therapeutic direction">
       <section className="flex min-h-[calc(100vh-7rem)] items-center px-2 py-6 text-center sm:px-4 sm:py-10">
         <div className="mx-auto max-w-5xl">
-          <h2 className="mt-4 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl">RepurposeIQ</h2>
+          <h2 className="mt-4 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl">ReMediX</h2>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-            RepurposeIQ scores any drug or compound for repurposing potential against any disease--integrating 8 databases, 5 analytical steps and a weighted molecular structure.
+            ReMediX scores any drug or compound for repurposing potential against any disease--integrating 8 databases, 5 analytical steps and a weighted molecular structure.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <button
@@ -161,7 +161,7 @@ export function HomePage() {
               to="/geneExpressions"
               className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
             >
-              Explore Gene Expressions
+              Disease Molecular Signature
             </Link>
           </div>
         </div>

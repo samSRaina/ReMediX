@@ -15,7 +15,7 @@ export function AppLayout({ children, fullWidth = false }: { title?: string; sub
       <div className={`${fullWidth ? 'w-full' : 'mx-auto max-w-7xl'} space-y-6`}>
         <header className="sticky top-0 z-40 py-1.5 sm:py-2">
           <nav className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-2xl border border-white/70 bg-white/75 px-2 py-2 shadow-[0_10px_35px_-22px_rgba(15,23,42,0.55)] backdrop-blur-xl">
-            <span className="px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">VascuMap</span>
+            <span className="px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">ReMediX</span>
             <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80 p-1">
               {navItems.map((item) => (
                 <NavLink

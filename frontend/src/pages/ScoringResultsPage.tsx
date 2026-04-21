@@ -7,7 +7,7 @@ export function ScoringResultsPage() {
       <section className="mx-auto max-w-5xl space-y-6">
         <Surface>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Scoring Results</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Read final disease therapeutic effect in context</h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Read final disease therapeutic effect</h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
             Final score ranges from 0 to 1 and captures the balance between beneficial and harmful disease-signature overlap after directional filtering.
           </p>
@@ -18,12 +18,12 @@ export function ScoringResultsPage() {
             >
               Run New Compound
             </Link>
-            <Link
+            {/*<Link
               to="/geneMatch"
               className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
             >
               Open Match Workspace
-            </Link>
+            </Link>*/}
           </div>
         </Surface>
 
