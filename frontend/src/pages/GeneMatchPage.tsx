@@ -84,6 +84,10 @@ export function GeneMatchPage() {
 
   return (
     <AppLayout title="Directional Therapeutic Effect" subtitle="Match compound-linked genes against disease signatures">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold text-slate-900">Directional Therapeutic Effect</h1>
+        <p className="text-sm text-slate-600">Match compound-linked genes against disease signatures</p>
+      </div>
       <Surface>
         <div className="grid gap-4 md:grid-cols-[2fr_1fr_1fr] md:items-end">
           <label className="space-y-2">
@@ -120,10 +124,12 @@ export function GeneMatchPage() {
           </button>
         </div>
 
-        <p className="mt-3 text-sm text-slate-600">
-          Gene set: <span className="font-semibold">{genes.length}</span>{' '}
-          {genes.length > 0 ? `(${genes.slice(0, 8).join(', ')}${genes.length > 8 ? ', ...' : ''})` : '(none provided)'}
-        </p>
+        <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
+          <summary className="cursor-pointer font-semibold text-slate-700">Gene set ({genes.length})</summary>
+          <div className="mt-2">
+            {genes.length > 0 ? genes.join(', ') : '(none provided)'}
+          </div>
+        </details>
 
         {score ? (
           <div className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 p-4">
@@ -198,5 +204,4 @@ export function GeneMatchPage() {
     </AppLayout>
   );
 }
-
 
