@@ -12,6 +12,7 @@ from ..clients import chembl_client, creeds_client
 
 _EXCLUDED_SHEETS = ["Reactome"]
 _CREEDS_AMBIGUITY_RATIO_THRESHOLD = 1.2
+_CREEDS_FALLBACK_WEIGHT = 0.15
 _PROMISCUITY_COEFFICIENT = 0.1
 _SCORE_SCALE_FACTOR = 10.0
 _HIGH_SCORE_THRESHOLD = 0.05
@@ -122,6 +123,23 @@ def _resolve_creeds_direction(gene: str, perturbation_index: dict[str, dict]) ->
         "direction": direction,
         "skip_reason": skip_reason,
     }
+
+
+def _calculate_creeds_confidence(up_count: int, down_count: int) -> float:
+    maximum = max(up_count, down_count)
+    minimum = min(up_count, down_count)
+    if maximum <= 0:
+        return 0.0
+    return (maximum - minimum) / float(maximum)
+
+
+def _calculate_creeds_fallback_score(
+    average_disease_score: float,
+    up_count: int,
+    down_count: int,
+) -> float:
+    confidence = _calculate_creeds_confidence(up_count, down_count)
+    return average_disease_score * _CREEDS_FALLBACK_WEIGHT * confidence
 
 
 def _pick_best_activity_per_gene(activities: list[dict]) -> dict[str, dict]:
