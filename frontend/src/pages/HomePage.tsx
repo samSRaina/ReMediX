@@ -23,6 +23,34 @@ const BIOACTIVITY_COLUMNS: Array<{ key: SortKey; label: string }> = [
   { key: 'protein_target_classification', label: 'Protein Class' },
 ];
 
+const NAME_PLACEHOLDER = 'Aspirin';
+const SMILES_PLACEHOLDER = 'CC(=O)OC1=CC=CC=C1C(=O)O';
+const SMILES_INVALID_PATTERN = /[\.\[]/;
+const CHEMICAL_IDENTITY_ORDER = [
+  'CID',
+  'SMILES',
+  'InChIKey',
+  'IUPACName',
+  'MolecularFormula',
+  'MolecularWeight',
+  'XLogP',
+  'HBondAcceptorCount',
+  'HBondDonorCount',
+  'TPSA',
+];
+const CHEMICAL_LABEL_OVERRIDES: Record<string, string> = {
+  CID: 'CID',
+  SMILES: 'SMILES',
+  InChIKey: 'InChIKey',
+  IUPACName: 'IUPAC Name',
+  MolecularFormula: 'Molecular Formula',
+  MolecularWeight: 'Molecular Weight',
+  XLogP: 'XLogP',
+  HBondAcceptorCount: 'HBA',
+  HBondDonorCount: 'HBD',
+  TPSA: 'TPSA',
+};
+
 function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '--';
   return String(value);
@@ -32,9 +60,14 @@ function formatFieldLabel(label: string): string {
   return label.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatIdentityLabel(label: string): string {
+  return CHEMICAL_LABEL_OVERRIDES[label] ?? formatFieldLabel(label);
+}
+
 export function HomePage() {
   const [compoundInput, setCompoundInput] = useState('');
   const [searchBySmile, setSearchBySmile] = useState(false);
+  const [smilesValidationInput, setSmilesValidationInput] = useState<string | null>(null);
   const [pubchemData, setPubchemData] = useState<PubChemCompound | null>(null);
   const [drugbankData, setDrugbankData] = useState<DrugBankData | null>(null);
   const [bioactivityRows, setBioactivityRows] = useState<BioactivityRecord[]>([]);
@@ -49,6 +82,11 @@ export function HomePage() {
   const workflowSectionRef = useRef<HTMLElement | null>(null);
 
   const currentInchiKey = pubchemData?.InChIKey ?? '';
+  const isSmilesBlocked =
+    searchBySmile && smilesValidationInput !== null && compoundInput.trim() === smilesValidationInput;
+  const smilesValidationMessage = isSmilesBlocked
+    ? `SMILES strings cannot include "." or "[" characters. Example: ${SMILES_PLACEHOLDER}`
+    : null;
 
   useEffect(() => {
     if (!currentInchiKey) return;
@@ -94,11 +132,37 @@ export function HomePage() {
     setSortDirection('asc');
   }
 
+  function handleCompoundInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextValue = event.target.value;
+    setCompoundInput(nextValue);
+    if (smilesValidationInput && nextValue.trim() !== smilesValidationInput) {
+      setSmilesValidationInput(null);
+    }
+  }
+
+  function handleSearchModeChange(nextMode: 'name' | 'smiles') {
+    setSearchBySmile(nextMode === 'smiles');
+    setSmilesValidationInput(null);
+  }
+
   async function handleSearch(event: FormEvent) {
     event.preventDefault();
-    if (!compoundInput.trim()) {
+    const trimmedInput = compoundInput.trim();
+    if (!trimmedInput) {
       setErrorMessage('Please enter a compound name or SMILES string.');
       return;
+    }
+
+    if (searchBySmile) {
+      if (isSmilesBlocked) {
+        return;
+      }
+      if (SMILES_INVALID_PATTERN.test(trimmedInput)) {
+        setSmilesValidationInput(trimmedInput);
+        return;
+      }
+    } else if (smilesValidationInput) {
+      setSmilesValidationInput(null);
     }
 
     setErrorMessage(null);
@@ -109,7 +173,7 @@ export function HomePage() {
     setGeneSet([]);
 
     try {
-      const compound = searchBySmile ? await getCompoundBySmile(compoundInput.trim()) : await getCompoundByName(compoundInput.trim());
+      const compound = searchBySmile ? await getCompoundBySmile(trimmedInput) : await getCompoundByName(trimmedInput);
       if (!compound) {
         setErrorMessage('Compound not found in PubChem. Please try another name or SMILES string.');
         return;
@@ -141,6 +205,19 @@ export function HomePage() {
     workflowSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  const chemicalIdentityEntries = useMemo(() => {
+    if (!pubchemData) return [];
+    const entries = Object.entries(pubchemData);
+    const entriesMap = new Map(entries);
+    const orderedEntries = CHEMICAL_IDENTITY_ORDER.filter((key) => entriesMap.has(key)).map((key) => [
+      key,
+      entriesMap.get(key),
+    ]);
+    const orderedKeys = new Set(CHEMICAL_IDENTITY_ORDER);
+    const remainingEntries = entries.filter(([key]) => !orderedKeys.has(key));
+    return [...orderedEntries, ...remainingEntries];
+  }, [pubchemData]);
+
   return (
     <AppLayout fullWidth title="ReMedix" subtitle="Map molecular signals to therapeutic direction">
       <section className="flex min-h-[calc(100vh-7rem)] items-center px-2 py-6 text-center sm:px-4 sm:py-10">
@@ -169,68 +246,88 @@ export function HomePage() {
 
       <>
         <section ref={workflowSectionRef} className="mx-auto max-w-5xl scroll-mt-28 px-2 sm:px-4">
-        <form className="grid gap-5" onSubmit={handleSearch}>
-          <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-4 py-3">
-            <p className="text-sm font-semibold text-cyan-900">Start with a compound</p>
-            <p className="mt-1 text-sm text-cyan-800/90">
-              Search by compound name or SMILES, then continue into gene-level disease matching.
-            </p>
-          </div>
-
-          <label className="space-y-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                value={compoundInput}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => setCompoundInput(event.target.value)}
-                placeholder={searchBySmile ? 'CC(=O)OC1=CC=CC=C1C(=O)O' : 'Aspirin'}
-                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
-              />
+          <form className="grid gap-5" onSubmit={handleSearch}>
+            <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 px-4 py-3">
+              <p className="text-sm font-semibold text-cyan-900">Start with a compound</p>
+              <p className="mt-1 text-sm text-cyan-800/90">
+                Search by compound name or SMILES, then continue into gene-level disease matching.
+              </p>
             </div>
-          </label>
 
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300"
-                checked={searchBySmile}
-                onChange={(event: ChangeEvent<HTMLInputElement>) => setSearchBySmile(event.target.checked)}
-              />
-              Search by SMILES
-            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="relative flex-1 min-w-[240px]">
+                <span className="sr-only">Compound name or SMILES</span>
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  value={compoundInput}
+                  onChange={handleCompoundInputChange}
+                  placeholder={searchBySmile ? SMILES_PLACEHOLDER : NAME_PLACEHOLDER}
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none ring-cyan-400 transition focus:border-cyan-400 focus:ring"
+                />
+              </label>
 
-            <button
-              type="submit"
-              disabled={isSearching}
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-500 disabled:opacity-50"
-            >
-              {isSearching ? <Loader2 className="animate-spin" size={16} /> : <FlaskConical size={16} />}
-              {isSearching ? 'Searching...' : 'Fetch Compound Profile'}
-            </button>
+              <div className="inline-flex items-center rounded-xl border border-slate-300 bg-white p-1 text-sm">
+                <button
+                  type="button"
+                  onClick={() => handleSearchModeChange('name')}
+                  className={`rounded-lg px-3 py-1.5 font-semibold transition ${
+                    !searchBySmile ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/30' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Name
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSearchModeChange('smiles')}
+                  className={`rounded-lg px-3 py-1.5 font-semibold transition ${
+                    searchBySmile ? 'bg-cyan-600 text-white shadow-sm shadow-cyan-600/30' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  SMILES
+                </button>
+              </div>
 
-            {geneSet.length > 0 ? (
-              <Link
-                to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}`}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
+              <button
+                type="submit"
+                disabled={isSearching || isSmilesBlocked}
+                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-cyan-600/30 transition hover:-translate-y-0.5 hover:bg-cyan-500 disabled:opacity-50"
               >
-                Open Gene Match ({geneSet.length})
-              </Link>
-            ) : null}
-          </div>
+                {isSearching ? <Loader2 className="animate-spin" size={16} /> : <FlaskConical size={16} />}
+                {isSearching ? 'Searching...' : 'Fetch Compound Profile'}
+              </button>
 
-          {(pubchemData || drugbankData || bioactivityRows.length > 0) ? (
-            <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-700">
-              <span className="rounded-lg bg-white px-2 py-1">PubChem: {pubchemData ? 'Loaded' : 'Pending'}</span>
-              <span className="rounded-lg bg-white px-2 py-1">DrugBank: {drugbankData ? 'Loaded' : 'Pending'}</span>
-              <span className="rounded-lg bg-white px-2 py-1">Bioactivity rows: {bioactivityRows.length}</span>
-              <span className="rounded-lg bg-white px-2 py-1">Genes: {geneSet.length}</span>
+              {geneSet.length > 0 ? (
+                <Link
+                  to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}`}
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
+                >
+                  Open Gene Match ({geneSet.length})
+                </Link>
+              ) : null}
+            </div>
+
+            {smilesValidationMessage ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+                {smilesValidationMessage}
+              </div>
+            ) : null}
+
+            {(pubchemData || drugbankData || bioactivityRows.length > 0) ? (
+              <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-700">
+                <span className="rounded-lg bg-white px-2 py-1">PubChem: {pubchemData ? 'Loaded' : 'Pending'}</span>
+                <span className="rounded-lg bg-white px-2 py-1">DrugBank: {drugbankData ? 'Loaded' : 'Pending'}</span>
+                <span className="rounded-lg bg-white px-2 py-1">Bioactivity rows: {bioactivityRows.length}</span>
+                <span className="rounded-lg bg-white px-2 py-1">Genes: {geneSet.length}</span>
+              </div>
+            ) : null}
+          </form>
+
+          {errorMessage ? (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMessage}
             </div>
           ) : null}
-        </form>
-
-        {errorMessage ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMessage}</div> : null}
-      </section>
+        </section>
 
         <section className="mx-auto max-w-5xl px-2 sm:px-4">
         <TabGroup>
@@ -253,11 +350,11 @@ export function HomePage() {
               {!pubchemData ? (
                 <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No compound loaded yet.</p>
               ) : (
-                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {Object.entries(pubchemData).map(([key, value]) => (
+                <dl className="grid gap-3">
+                  {chemicalIdentityEntries.map(([key, value]) => (
                     <div key={key} className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
-                      <dt className="text-xs uppercase tracking-wide text-slate-500">{formatFieldLabel(key)}</dt>
-                      <dd className="mt-1 text-sm font-medium">{formatValue(value)}</dd>
+                      <dt className="text-xs uppercase tracking-wide text-slate-500">{formatIdentityLabel(key)}</dt>
+                      <dd className="mt-1 break-words text-sm font-medium text-slate-900">{formatValue(value)}</dd>
                     </div>
                   ))}
                 </dl>
@@ -270,6 +367,10 @@ export function HomePage() {
               ) : (
                 <dl className="grid gap-4">
                   <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">DrugBank ID</dt>
+                    <dd className="mt-2 break-words text-sm">{formatValue(drugbankData.drugbank_id)}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Groups</dt>
                     <dd className="mt-2 text-sm">{(drugbankData.groups ?? []).join(', ') || '--'}</dd>
                   </div>
@@ -278,8 +379,8 @@ export function HomePage() {
                     <dd className="mt-2 text-sm">{formatValue(drugbankData.indication)}</dd>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                    <dt className="text-xs uppercase tracking-wide text-slate-500">Targets</dt>
-                    <dd className="mt-2 text-sm">{(drugbankData.targets ?? []).join(', ') || '--'}</dd>
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Categories</dt>
+                    <dd className="mt-2 text-sm">{(drugbankData.categories ?? []).join(', ') || '--'}</dd>
                   </div>
                 </dl>
               )}
@@ -351,4 +452,3 @@ export function HomePage() {
     </AppLayout>
   );
 }
-
