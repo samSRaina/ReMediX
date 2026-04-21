@@ -105,7 +105,7 @@ export function GeneMatchPage() {
     setLoading(true);
     setError(null);
     try {
-      const payload = await getFinalGeneScore(inchiKey, disease);
+      const payload = await getFinalGeneScore({ inchikey: inchiKey, disease });
       setScore(payload);
     } catch (err) {
       setScore(null);

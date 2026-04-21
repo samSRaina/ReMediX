@@ -79,8 +79,13 @@ export function getGeneMatch(genes: string, disease: string) {
   return apiGet<GeneMatchResponse>(`/api/match?${query.toString()}`);
 }
 
-export function getFinalGeneScore(inchiKey: string, disease: string) {
-  const query = new URLSearchParams({ inchikey: inchiKey, disease });
+export interface FinalGeneScoreParams {
+  inchikey: string;
+  disease: string;
+}
+
+export function getFinalGeneScore(params: FinalGeneScoreParams) {
+  const query = new URLSearchParams({ inchikey: params.inchikey, disease: params.disease });
   return apiGet<FinalGeneScoreResponse>(`/api/finalGeneScore?${query.toString()}`);
 }
 
