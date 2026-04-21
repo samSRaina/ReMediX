@@ -1,7 +1,18 @@
 import { Link } from 'react-router-dom';
 import { AppLayout, Surface } from '../components/Layout';
 
+const LAST_INCHIKEY_STORAGE_KEY = 'lastInchiKey';
+
 export function ScoringResultsPage() {
+  const geneMatchHref = (() => {
+    try {
+      const inchiKey = (window.localStorage.getItem(LAST_INCHIKEY_STORAGE_KEY) || '').trim();
+      return inchiKey ? `/geneMatch?inchikey=${encodeURIComponent(inchiKey)}` : '/geneMatch';
+    } catch {
+      return '/geneMatch';
+    }
+  })();
+
   return (
     <AppLayout>
       <section className="mx-auto max-w-5xl space-y-6">
@@ -19,7 +30,7 @@ export function ScoringResultsPage() {
               Run New Compound
             </Link>
             <Link
-              to="/geneMatch"
+              to={geneMatchHref}
               className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
             >
               Open Match Workspace
