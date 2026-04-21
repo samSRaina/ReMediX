@@ -25,7 +25,7 @@ const BIOACTIVITY_COLUMNS: Array<{ key: SortKey; label: string }> = [
 
 const NAME_PLACEHOLDER = 'Aspirin';
 const SMILES_PLACEHOLDER = 'CC(=O)OC1=CC=CC=C1C(=O)O';
-const SMILES_INVALID_PATTERN = /[\.\[]/;
+const SMILES_INVALID_PATTERN = /[.\[\]]/;
 const CHEMICAL_IDENTITY_ORDER = [
   'CID',
   'SMILES',
@@ -85,7 +85,7 @@ export function HomePage() {
   const isSmilesBlocked =
     searchBySmile && smilesValidationInput !== null && compoundInput.trim() === smilesValidationInput;
   const smilesValidationMessage = isSmilesBlocked
-    ? `SMILES strings cannot include "." or "[" characters. Example: ${SMILES_PLACEHOLDER}`
+    ? `Unidentified chemistry class detected. Your input contains a salt form indicator (.) or metal complex notation ([ ]). Please enter a clean single-parent organic molecule.`
     : null;
 
   useEffect(() => {

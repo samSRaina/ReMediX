@@ -5,6 +5,14 @@ import { AppLayout, Surface } from '../components/Layout';
 import { getDiseaseSignatureTable, getDiseases, getFinalGeneScore, getGeneMatch } from '../lib/api';
 import type { DiseaseSignatureTableResponse, FinalGeneScoreResponse, GeneMatchItem } from '../types/api';
 
+function getUpCount(row: GeneMatchItem): number {
+  return row.up_count ?? row.total_up ?? 0;
+}
+
+function getDownCount(row: GeneMatchItem): number {
+  return row.down_count ?? row.total_down ?? 0;
+}
+
 export function GeneMatchPage() {
   const [searchParams] = useSearchParams();
   const genes = useMemo(() => (searchParams.get('genes') || '').split(',').map((g: string) => g.trim()).filter(Boolean), [searchParams]);
@@ -36,19 +44,49 @@ export function GeneMatchPage() {
       setTable(null);
       return;
     }
+    let cancelled = false;
     async function loadTable() {
       setTableLoading(true);
       try {
-        const payload = await getDiseaseSignatureTable(disease, 1, 100);
-        setTable(payload);
+        const firstPage = await getDiseaseSignatureTable(disease, 1, 100);
+        if (cancelled) return;
+
+        if (!firstPage.totalPages || firstPage.totalPages <= 1) {
+          setTable(firstPage);
+          return;
+        }
+
+        const pendingPages: Promise<DiseaseSignatureTableResponse>[] = [];
+        for (let page = 2; page <= firstPage.totalPages; page += 1) {
+          pendingPages.push(getDiseaseSignatureTable(disease, page, 100));
+        }
+
+        const remainingPages = await Promise.all(pendingPages);
+        if (cancelled) return;
+
+        setTable({
+          ...firstPage,
+          data: [firstPage.data, ...remainingPages.map((payload) => payload.data)].flat(),
+          page: 1,
+          totalPages: 1,
+          pageSize: firstPage.total,
+        });
       } catch (err) {
-        setTable(null);
-        setError(err instanceof Error ? err.message : 'Failed to load disease signature table');
+        if (!cancelled) {
+          setTable(null);
+          setError(err instanceof Error ? err.message : 'Failed to load disease signature table');
+        }
       } finally {
-        setTableLoading(false);
+        if (!cancelled) {
+          setTableLoading(false);
+        }
       }
     }
     void loadTable();
+
+    return () => {
+      cancelled = true;
+    };
   }, [disease]);
 
   async function runMatch() {
@@ -165,10 +203,10 @@ export function GeneMatchPage() {
                   {matchResults.map((row) => (
                     <tr key={row.gene}>
                       <td className="px-3 py-2 font-medium">{row.gene}</td>
-                      <td className="px-3 py-2 text-emerald-700">{row.total_up}</td>
-                      <td className="px-3 py-2 text-rose-700">{row.total_down}</td>
+                      <td className="px-3 py-2 text-emerald-700">{getUpCount(row)}</td>
+                      <td className="px-3 py-2 text-rose-700">{getDownCount(row)}</td>
                       <td className="px-3 py-2">{typeof row.ratio === 'number' ? row.ratio.toFixed(3) : 'N/A'}</td>
-                      <td className="px-3 py-2">{row.direction ?? row.error ?? 'N/A'}</td>
+                      <td className="px-3 py-2">{row.direction ?? row.classification ?? row.error ?? 'N/A'}</td>
                     </tr>
                   ))}
                 </tbody>

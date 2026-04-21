@@ -46,14 +46,15 @@ export interface BioactivityResponse {
 
 export interface GeneMatchItem {
   gene: string;
-  up_genes: Array<{ gene: string; drug_score: number; disease_score: number }>;
-  down_genes: Array<{ gene: string; drug_score: number; disease_score: number }>;
-  total_up: number;
-  total_down: number;
+  up_count?: number;
+  down_count?: number;
+  total_up?: number;
+  total_down?: number;
   ratio: number | null;
-  direction: 'up' | 'down' | 'ambiguous' | null;
-  threshold: number;
-  error: string | null;
+  direction?: 'UP' | 'DOWN' | 'AMBIGUOUS' | 'up' | 'down' | 'ambiguous' | null;
+  classification?: string;
+  effect?: string;
+  error?: string | null;
 }
 
 export interface GeneMatchResponse {
@@ -100,4 +101,3 @@ export interface ExcelSheetResponse {
   total: number;
   totalPages: number;
 }
-
