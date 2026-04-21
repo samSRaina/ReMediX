@@ -353,7 +353,7 @@ export function HomePage() {
                 <dl className="grid gap-3">
                   {chemicalIdentityEntries.map(([key, value]) => (
                     <div key={key} className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
-                      <dt className="text-xs uppercase tracking-wide text-slate-500">{formatIdentityLabel(String(key))}</dt>
+                      <dt className="text-xs uppercase tracking-wide text-slate-500">{formatIdentityLabel(key)}</dt>
                       <dd className="mt-1 break-words text-sm font-medium text-slate-900">{formatValue(value)}</dd>
                     </div>
                   ))}
