@@ -29,3 +29,9 @@ frontend/vite.config.d.ts
 
 #.pk1 large file already being tracked via lfs
 /src/data/drugBank/drugbank_inchikey_index.pkl
+
+#Agents file
+AGENTS.md
+
+#archived files
+archive
