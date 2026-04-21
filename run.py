@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from typing import List
 import argparse
 import os
 import signal
@@ -13,7 +13,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = ROOT_DIR / "frontend"
 
 
-def _parse_args(argv: list[str]) -> argparse.Namespace:
+def _parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Start FastAPI backend and React frontend dev servers together."
     )
