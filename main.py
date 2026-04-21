@@ -30,7 +30,7 @@ if FRONTEND_INDEX.exists():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def spa_fallback(full_path: str) -> FileResponse:
-        # This fallback only runs after mounted/static/api routes fail to match.
+        # This fallback only runs after mounted and API routes fail to match.
         return FileResponse(FRONTEND_INDEX)
 else:
     @app.get("/", include_in_schema=False)
