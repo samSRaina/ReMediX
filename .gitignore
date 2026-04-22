@@ -16,7 +16,7 @@ wheels/
 gc
 
 #dynamically created files
-src/data/CREEDS/disease_signature_table.json
+#src/data/CREEDS/disease_signature_table.json
 
 #Frontend
 node_modules/

@@ -6,7 +6,7 @@ from functools import lru_cache
 DISEASE_SIG = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signatures-v1.0.json'
 SINGLE_DRUG_PERTURBATION = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'single_drug_perturbations-v1.0.json'
 DISEASE_SIGNATURE_TABLE = Path(__file__).parent.parent / 'data' / 'CREEDS' / 'disease_signature_table.json'
-RATIO_THRESHOLD = 1.2
+RATIO_THRESHOLD = 1.1
 
 
 @lru_cache(maxsize=1)
@@ -552,11 +552,11 @@ def match_gene_set(gene_list: list[str], disease: str | None = None) -> dict:
 
 
 if __name__ == "__main__":
-    gene = "HRH1"
-    disease = "pulmonary hypertension"
+    gene = "pde51"
+    disease = "bone fracture"
     obj = CreedsClient(gene)
     disease_signatures = get_disease_signatures(disease)
     single_drug_perturbations = obj.get_single_drug_perturbations()
     print(disease_signatures)
     print(single_drug_perturbations)
-    print(type(obj.match_genes(disease_signatures, single_drug_perturbations)))
+    print(obj.match_genes(disease_signatures, single_drug_perturbations))
