@@ -37,8 +37,8 @@ frontend/*.tsbuildinfo
 frontend/tailwind.config.d.ts
 frontend/vite.config.d.ts
 
-#.pk1 large file already being tracked via lfs
-/src/data/drugBank/drugbank_inchikey_index.pkl
+#data files
+/src/data
 
 #Agents file
 AGENTS.md
