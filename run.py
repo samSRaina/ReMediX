@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+#from typing import List
 import argparse
 import os
 import signal
@@ -13,7 +13,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = ROOT_DIR / "frontend"
 
 
-def _parse_args(argv: List[str]) -> argparse.Namespace:
+def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Start FastAPI backend and React frontend dev servers together."
     )
@@ -36,10 +36,10 @@ def _resolve_executable(candidates: list[str]) -> str | None:
 def _build_backend_command() -> list[str]:
     uv_exec = _resolve_executable(["uv", "uv.exe"])
     if uv_exec:
-        return [uv_exec, "run", "fastapi", "dev", "main.py"]
+        return [uv_exec, "run", "fastapi", "run", "main.py"]
 
     # Fallback keeps launcher usable if uv is unavailable in PATH.
-    return [sys.executable, "-m", "fastapi", "dev", "main.py"]
+    return [sys.executable, "-m", "fastapi", "run", "main.py"]
 
 
 def _build_frontend_command() -> list[str]:
