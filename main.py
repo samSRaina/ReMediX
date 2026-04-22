@@ -9,6 +9,15 @@ from src.routers import api
 
 
 app = FastAPI()
+
+# Add CORS middleware to allow the Netlify frontend to communicate with the backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Recommend updating this to your Netlify URL once deployed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "src" / "data"
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
