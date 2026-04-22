@@ -9,6 +9,16 @@ wheels/
 # Virtual environments
 .venv
 
+# Environment files (keep templates tracked)
+.env
+.env.*
+!.env.example
+!.env.render.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.netlify.example
+
 # both are tracked with git lfs
 #src/data
 #src/data.zip

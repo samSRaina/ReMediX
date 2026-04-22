@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -11,6 +14,31 @@ DATA_DIR = BASE_DIR / "src" / "data"
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
 FRONTEND_INDEX = FRONTEND_DIST_DIR / "index.html"
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
+
+
+def _get_allowed_origins() -> list[str]:
+    raw = os.getenv("ALLOWED_ORIGINS", "")
+    if not raw.strip():
+        # Keep local development frictionless when env var is not set.
+        return ["*"]
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def _get_allowed_origin_regex() -> str | None:
+    raw = os.getenv("ALLOWED_ORIGIN_REGEX", "").strip()
+    return raw or None
+
+
+allowed_origins = _get_allowed_origins()
+allowed_origin_regex = _get_allowed_origin_regex()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_origin_regex=allowed_origin_regex,
+    allow_credentials=("*" not in allowed_origins),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 app.include_router(api.router)

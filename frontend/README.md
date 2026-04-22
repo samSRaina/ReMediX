@@ -21,6 +21,13 @@ This folder contains a modern React + TypeScript + Tailwind UI for the existing 
 - Copy-to-clipboard and sortable/filterable bioactivity table on home page
 
 ## Run in development
+Before starting, create your local env file:
+
+```powershell
+Set-Location "D:\PycharmProjects\drugRepurpose-app\frontend"
+Copy-Item ".env.example" ".env.local"
+```
+
 1. Install frontend dependencies once:
 
 ```powershell
@@ -54,3 +61,25 @@ The build output is created in `frontend/dist`.
 ```powershell
 fastapi run
 ```
+
+## Deploy on Netlify
+
+This repository includes a root `netlify.toml` with:
+
+- base directory: `frontend`
+- build command: `npm run build`
+- publish directory: `dist`
+- SPA fallback redirect to `index.html`
+
+Set this environment variable in Netlify:
+
+- `VITE_API_BASE_URL=https://<your-render-backend>`
+
+Use this template file while configuring Netlify:
+
+- `frontend/.env.netlify.example`
+
+Example:
+
+- `VITE_API_BASE_URL=https://drugrepurpose-api.onrender.com`
+
