@@ -38,7 +38,11 @@ frontend/tailwind.config.d.ts
 frontend/vite.config.d.ts
 
 #data files
-/src/data
+/src/data/CREEDS
+/src/data/drugBank/
+/src/data/PPInteraction
+/src/data/data_set.xlsx
+/src/data/drug_repurposing_scoring_logic.docx
 
 #Agents file
 AGENTS.md
