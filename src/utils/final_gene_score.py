@@ -4,11 +4,11 @@ import openpyxl
 from pathlib import Path
 from ..clients import creeds_client
 
-_EXCLUDED_SHEETS = ["Reactome"]
+_EXCLUDED_SHEETS = {"reactome"}
 
 @lru_cache(maxsize=1)
 def load_excel_sheets() -> dict[str, list[list]]:
-    """Read all non-excluded sheets once and cache them."""
+    """Read and cache all supported Excel sheets from the PPInteraction dataset."""
     from datetime import datetime, date
 
     def _serialise(v):
@@ -20,22 +20,34 @@ def load_excel_sheets() -> dict[str, list[list]]:
             return str(v)
         return v
 
-    excel_path = Path(__file__).resolve().parent.parent / "data" / "data_set.xlsx"
-    wb = openpyxl.load_workbook(excel_path, data_only=True)
+    data_dir = Path(__file__).resolve().parent.parent / "data" / "PPInteraction" / "xlsxData"
     result: dict[str, list[list]] = {}
 
-    for sheet_name in wb.sheetnames:
-        if sheet_name in _EXCLUDED_SHEETS:
+    for excel_path in sorted(data_dir.glob("*.xlsx")):
+        if excel_path.name.startswith("~$"):
             continue
-        ws = wb[sheet_name]
-        rows = []
-        for row in ws.iter_rows(values_only=True):
-            cleaned = [_serialise(c) for c in row]
-            # trim trailing None cells (Top Reactome has 453 cols, mostly empty)
-            while cleaned and cleaned[-1] is None:
-                cleaned.pop()
-            rows.append(cleaned)
-        result[sheet_name] = rows
+
+        wb = openpyxl.load_workbook(excel_path, data_only=True)
+        base_name = excel_path.stem.strip()
+
+        for sheet_name in wb.sheetnames:
+            if sheet_name.strip().lower() in _EXCLUDED_SHEETS or base_name.lower().find("reactome") >= 0:
+                continue
+
+            ws = wb[sheet_name]
+            rows = []
+            for row in ws.iter_rows(values_only=True):
+                cleaned = [_serialise(c) for c in row]
+                # trim trailing None cells to keep payload compact
+                while cleaned and cleaned[-1] is None:
+                    cleaned.pop()
+                rows.append(cleaned)
+
+            if len(wb.sheetnames) == 1:
+                key = base_name
+            else:
+                key = f"{base_name} - {sheet_name.strip()}"
+            result[key] = rows
 
     return result
 
