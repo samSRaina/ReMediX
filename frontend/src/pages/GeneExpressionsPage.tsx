@@ -15,7 +15,9 @@ export function GeneExpressionsPage() {
   const [images, setImages] = useState<ImageAsset[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [imagesError, setImagesError] = useState<string | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<{ title: string; src: string } | null>(null);
+  const [previewError, setPreviewError] = useState(false);
   const [searchInputBySheet, setSearchInputBySheet] = useState<Record<string, string>>({});
   const [searchBySheet, setSearchBySheet] = useState<Record<string, string>>({});
   const [pageBySheet, setPageBySheet] = useState<Record<string, number>>({});
@@ -107,6 +109,10 @@ export function GeneExpressionsPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [preview]);
 
+  useEffect(() => {
+    setPreviewError(false);
+  }, [preview]);
+
   const filteredRows = useMemo(() => {
     if (!sheetPage) return [];
     const query = (searchBySheet[activeSheet] ?? '').trim().toLowerCase();
@@ -145,7 +151,18 @@ export function GeneExpressionsPage() {
                   onClick={() => setPreview({ title: image.label, src: image.url })}
                   className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md"
                 >
-                  <img src={image.url} alt={image.label} className="h-44 w-full object-contain bg-slate-50" />
+                  {imageErrors[image.url] ? (
+                    <div className="flex h-44 w-full items-center justify-center bg-slate-50 text-xs text-slate-500">
+                      Image unavailable
+                    </div>
+                  ) : (
+                    <img
+                      src={image.url}
+                      alt={image.label}
+                      className="h-44 w-full object-contain bg-slate-50"
+                      onError={() => setImageErrors((prev) => ({ ...prev, [image.url]: true }))}
+                    />
+                  )}
                   <div className="px-3 py-2 text-sm font-medium">{image.label}</div>
                 </button>
               ))}
@@ -352,7 +369,16 @@ export function GeneExpressionsPage() {
                 Close
               </button>
             </div>
-            <img src={preview.src} alt={preview.title} className="max-h-[80vh] w-full object-contain" />
+            {previewError ? (
+              <div className="flex h-48 items-center justify-center text-sm text-slate-500">Image unavailable.</div>
+            ) : (
+              <img
+                src={preview.src}
+                alt={preview.title}
+                className="max-h-[80vh] w-full object-contain"
+                onError={() => setPreviewError(true)}
+              />
+            )}
           </div>
         </div>
       ) : null}
