@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { AppLayout, Surface } from '../components/Layout';
+import { SourceBadges } from '../components/SourceBadges';
 import { getDiseaseSignatureTable, getDiseases, getFinalGeneScore, getGeneMatch } from '../lib/api';
 import type { DiseaseSignatureTableResponse, FinalGeneScoreResponse, GeneMatchItem } from '../types/api';
 
@@ -182,7 +183,10 @@ export function GeneMatchPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Surface>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Match Results</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Match Results</h2>
+            <SourceBadges sourceKeys={['creeds']} />
+          </div>
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="animate-spin" size={16} />Matching genes...</div>
           ) : matchResults.length === 0 ? (
@@ -216,7 +220,10 @@ export function GeneMatchPage() {
         </Surface>
 
         <Surface>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Disease Signature Table</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Disease Signature Table</h2>
+            <SourceBadges sourceKeys={['creeds']} />
+          </div>
           {tableLoading ? (
             <div className="flex items-center gap-2 text-sm text-slate-600"><Loader2 className="animate-spin" size={16} />Loading disease signature...</div>
           ) : !table || !table.data || table.data.length === 0 ? (
@@ -242,4 +249,3 @@ export function GeneMatchPage() {
     </AppLayout>
   );
 }
-

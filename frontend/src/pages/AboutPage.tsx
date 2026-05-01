@@ -1,4 +1,5 @@
 import { AppLayout, Surface } from '../components/Layout';
+import { SourceBadges } from '../components/SourceBadges';
 
 export function AboutPage() {
   return (
@@ -31,6 +32,7 @@ export function AboutPage() {
             <Surface key={item.title}>
               <h2 className="text-lg font-semibold text-slate-900">{item.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.body}</p>
+              <SourceBadges matchText={item.body} className="mt-3" />
             </Surface>
           ))}
         </div>
@@ -38,4 +40,3 @@ export function AboutPage() {
     </AppLayout>
   );
 }
-
