@@ -29,5 +29,6 @@ router.add_api_route("/diseases", handlers.get_available_diseases, methods=["GET
 
 # Data exploration endpoints
 router.add_api_route("/geneExpressions", handlers.get_gene_expressions, methods=["GET"])
+router.add_api_route("/geneExpressions/images", handlers.get_gene_expression_images, methods=["GET"])
 router.add_api_route("/excelData/meta", handlers.get_excel_meta, methods=["GET"])
 router.add_api_route("/excelData/sheet", handlers.get_excel_sheet, methods=["GET"])
