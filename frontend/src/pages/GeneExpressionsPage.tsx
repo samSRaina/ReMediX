@@ -337,9 +337,12 @@ export function GeneExpressionsPage() {
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
+            aria-labelledby="gene-expression-preview-title"
           >
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">{preview.title}</h3>
+              <h3 id="gene-expression-preview-title" className="text-sm font-semibold">
+                {preview.title}
+              </h3>
               <button
                 type="button"
                 onClick={() => setPreview(null)}
