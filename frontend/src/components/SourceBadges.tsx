@@ -101,13 +101,22 @@ export function SourceBadges({
     <div className={`flex flex-wrap items-start gap-2 ${className}`}>
       {resolvedSources.map((source) => {
         const journalLine = buildJournalLine(source);
+        const tooltipId = `source-tooltip-${source.key.replace(/[^a-z0-9]+/gi, '-')}`;
         return (
           <div key={source.key} className="group relative inline-flex max-w-[240px]">
-            <div className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm">
+            <div
+              tabIndex={0}
+              aria-describedby={tooltipId}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-1"
+            >
               <div className="leading-snug text-slate-700">{source.title}</div>
               <div className="text-[10px] font-medium text-slate-500">{formatYear(source.year)}</div>
             </div>
-            <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 max-w-[75vw] translate-y-1 opacity-0 transition group-hover:opacity-100">
+            <div
+              id={tooltipId}
+              role="tooltip"
+              className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 max-w-[75vw] translate-y-1 opacity-0 transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+            >
               <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-xl">
                 <p className="text-sm font-semibold text-slate-900">
                   {source.title} {source.year ? `(${source.year})` : ''}
