@@ -1,6 +1,6 @@
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react';
 import { Activity, Loader2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppLayout, Surface } from '../components/Layout';
 import { getExcelMeta, getExcelSheetPage, getGeneExpressionImages } from '../lib/api';
 import type { ExcelMetaResponse, ExcelSheetResponse, ImageAsset } from '../types/api';
@@ -18,6 +18,7 @@ export function GeneExpressionsPage() {
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [preview, setPreview] = useState<{ title: string; src: string } | null>(null);
   const [previewError, setPreviewError] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const [searchInputBySheet, setSearchInputBySheet] = useState<Record<string, string>>({});
   const [searchBySheet, setSearchBySheet] = useState<Record<string, string>>({});
   const [pageBySheet, setPageBySheet] = useState<Record<string, number>>({});
@@ -111,6 +112,12 @@ export function GeneExpressionsPage() {
 
   useEffect(() => {
     setPreviewError(false);
+  }, [preview]);
+
+  useEffect(() => {
+    if (preview) {
+      closeButtonRef.current?.focus();
+    }
   }, [preview]);
 
   const filteredRows = useMemo(() => {
@@ -355,6 +362,12 @@ export function GeneExpressionsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="gene-expression-preview-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Tab') {
+                event.preventDefault();
+                closeButtonRef.current?.focus();
+              }
+            }}
           >
             <div className="mb-2 flex items-center justify-between">
               <h3 id="gene-expression-preview-title" className="text-sm font-semibold">
@@ -364,6 +377,7 @@ export function GeneExpressionsPage() {
                 type="button"
                 onClick={() => setPreview(null)}
                 aria-label="Close preview modal"
+                ref={closeButtonRef}
                 className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50"
               >
                 Close
