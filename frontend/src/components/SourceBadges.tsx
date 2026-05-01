@@ -108,6 +108,11 @@ export function SourceBadges({
             <div
               tabIndex={0}
               aria-describedby={tooltipId}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  (event.currentTarget as HTMLDivElement).blur();
+                }
+              }}
               className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-1"
             >
               <div className="leading-snug text-slate-700">{source.title}</div>
@@ -116,7 +121,7 @@ export function SourceBadges({
             <div
               id={tooltipId}
               role="tooltip"
-              className="pointer-events-none invisible absolute left-0 top-full z-30 mt-2 w-72 max-w-[75vw] translate-y-1 opacity-0 transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+              className="pointer-events-none invisible absolute left-1/2 top-full z-30 mt-2 w-72 max-w-[75vw] -translate-x-1/2 translate-y-1 opacity-0 transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100"
             >
               <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-xl">
                 <p className="text-sm font-semibold text-slate-900">
