@@ -96,6 +96,17 @@ export function GeneExpressionsPage() {
     void loadSheet();
   }, [activeSheet, pageBySheet, pageSizeBySheet]);
 
+  useEffect(() => {
+    if (!preview) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setPreview(null);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [preview]);
+
   const filteredRows = useMemo(() => {
     if (!sheetPage) return [];
     const query = (searchBySheet[activeSheet] ?? '').trim().toLowerCase();
@@ -317,16 +328,22 @@ export function GeneExpressionsPage() {
       </div>
 
       {preview ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPreview(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreview(null)}
+        >
           <div
             className="max-h-[92vh] w-full max-w-6xl rounded-xl border border-slate-200 bg-white p-4 shadow-xl"
             onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
           >
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold">{preview.title}</h3>
               <button
                 type="button"
                 onClick={() => setPreview(null)}
+                aria-label="Close preview modal"
                 className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm transition hover:border-cyan-300 hover:bg-cyan-50"
               >
                 Close
