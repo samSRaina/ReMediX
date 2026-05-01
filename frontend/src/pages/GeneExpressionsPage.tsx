@@ -135,7 +135,7 @@ export function GeneExpressionsPage() {
 
   return (
     <AppLayout title="Gene Expressions" subtitle="Explore gene-expression Excel sheets">
-      <div className="grid gap-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <Surface>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Gene Expression Images</h2>
           {loadingImages ? (
@@ -150,13 +150,13 @@ export function GeneExpressionsPage() {
               No gene expression images available.
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 justify-items-center sm:grid-cols-2 xl:grid-cols-3">
               {images.map((image) => (
                 <button
                   key={image.url}
                   type="button"
                   onClick={() => setPreview({ title: image.label, src: image.url })}
-                  className="overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md"
+                  className="w-full max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-white text-center transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md"
                 >
                   {imageErrors[image.url] ? (
                     <div className="flex h-44 w-full items-center justify-center bg-slate-50 text-xs text-slate-500">
