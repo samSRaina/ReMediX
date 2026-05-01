@@ -88,6 +88,16 @@ export interface GeneExpressionsResponse {
   total_pages: number;
 }
 
+export interface ImageAsset {
+  label: string;
+  url: string;
+  filename: string;
+}
+
+export interface GeneExpressionImagesResponse {
+  images: ImageAsset[];
+}
+
 export interface ExcelMetaResponse {
   sheetNames: string[];
   meta: Record<string, { headers: string[]; totalRows: number }>;

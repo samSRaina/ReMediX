@@ -6,6 +6,7 @@ import type {
   DiseasesResponse,
   DrugBankData,
   FinalGeneScoreResponse,
+  GeneExpressionImagesResponse,
   GeneExpressionsResponse,
   GeneMatchResponse,
   PubChemCompound,
@@ -70,6 +71,10 @@ export function getGeneExpressions(page = 1, pageSize = 50, search?: string) {
   return apiGet<GeneExpressionsResponse>(`/api/geneExpressions?${query.toString()}`);
 }
 
+export function getGeneExpressionImages() {
+  return apiGet<GeneExpressionImagesResponse>('/api/geneExpressions/images');
+}
+
 export function getExcelMeta() {
   return apiGet<ExcelMetaResponse>('/api/excelData/meta');
 }
@@ -78,4 +83,3 @@ export function getExcelSheetPage(name: string, page = 1, pageSize = 100) {
   const query = new URLSearchParams({ name, page: String(page), page_size: String(pageSize) });
   return apiGet<ExcelSheetResponse>(`/api/excelData/sheet?${query.toString()}`);
 }
-

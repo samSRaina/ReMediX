@@ -1,3 +1,5 @@
+from pathlib import Path
+import re
 from typing import Optional
 
 from fastapi import HTTPException
@@ -6,6 +8,14 @@ from ..clients import chembl_client, creeds_client, drugbank_client, geneCards_c
 from ..utils import final_gene_score
 
 _drugbank_client = drugbank_client.DrugBankClient()
+_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
+
+
+def _format_image_label(filename: str) -> str:
+    stem = Path(filename).stem
+    label = re.sub(r"[_-]+", " ", stem)
+    label = re.sub(r"\s+", " ", label).strip()
+    return label or stem
 
 
 # PubChem database endpoints
@@ -94,6 +104,27 @@ async def get_gene_expressions(page: int = 1, page_size: int = 50, search: Optio
     return geneCards_client.get_geo_data(page, page_size, search)
 
 
+async def get_gene_expression_images():
+    data_dir = Path(__file__).resolve().parent.parent / "data" / "PPInteraction"
+    if not data_dir.exists():
+        return {"images": []}
+
+    images = []
+    for path in sorted(data_dir.iterdir()):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in _IMAGE_EXTENSIONS:
+            continue
+        images.append(
+            {
+                "label": _format_image_label(path.name),
+                "url": f"/data/PPInteraction/{path.name}",
+                "filename": path.name,
+            }
+        )
+    return {"images": images}
+
+
 async def get_excel_meta():
     """Return sheet names, column headers and row counts (lightweight)."""
     sheets = final_gene_score.load_excel_sheets()
@@ -171,4 +202,3 @@ async def get_available_diseases():
         return {"diseases": diseases}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load diseases: {str(e)}")
-

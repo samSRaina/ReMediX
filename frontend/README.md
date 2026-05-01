@@ -56,6 +56,7 @@ The build output is created in `frontend/dist`.
 - If your backend runs on a different host/port, set `VITE_API_BASE_URL`.
 - API typings are defined in `src/types/api.ts` and fetch wrappers in `src/lib/api.ts`.
 - This frontend replaces the old Jinja/vanilla-JS page UX; legacy assets are archived in the repository.
+- Gene Expressions sheets load from `src/data/PPInteraction/xlsxData`, and optional image assets (png/jpg/etc.) load from `src/data/PPInteraction`.
 
 ## run in production
 ```powershell
@@ -82,4 +83,3 @@ Use this template file while configuring Netlify:
 Example:
 
 - `VITE_API_BASE_URL=https://drugrepurpose-api.onrender.com`
-
