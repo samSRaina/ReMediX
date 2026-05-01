@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AppLayout, Surface } from '../components/Layout';
+import { SourceBadges } from '../components/SourceBadges';
 
 const excelLinks = [
   ['Protein Node Degrees', '/data/PPInteraction/xlsxData/1_Protein Node Degrees.xlsx'],
@@ -26,12 +27,17 @@ const images = [
 
 export function PpiInteractionPage() {
   const [preview, setPreview] = useState<{ title: string; src: string } | null>(null);
+  const excelSourceText = excelLinks.map(([label]) => label).join(' ');
+  const imageSourceText = images.map(([label]) => label).join(' ');
 
   return (
     <AppLayout title="PPI Interaction" subtitle="Network-level interaction visualizations and supporting sheets">
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <Surface>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-600">PPI Excel Sheets</h2>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">PPI Excel Sheets</h2>
+            <SourceBadges matchText={excelSourceText} />
+          </div>
           <p className="mb-3 text-xs text-slate-500">Files open in a new tab. Some browsers may download .xlsx files.</p>
           <div className="space-y-2">
             {excelLinks.map(([label, href]) => (
@@ -49,7 +55,10 @@ export function PpiInteractionPage() {
         </Surface>
 
         <Surface>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Images</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Images</h2>
+            <SourceBadges matchText={imageSourceText} />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {images.map(([title, src]) => (
               <button
@@ -80,4 +89,3 @@ export function PpiInteractionPage() {
     </AppLayout>
   );
 }
-

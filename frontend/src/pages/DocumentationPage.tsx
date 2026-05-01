@@ -1,4 +1,5 @@
 import { AppLayout, Surface } from '../components/Layout';
+import { SourceBadges } from '../components/SourceBadges';
 
 const docs = [
   {
@@ -26,7 +27,7 @@ export function DocumentationPage() {
               <ul className="mt-3 space-y-1.5 text-sm text-slate-600">
                 {section.items.map((item) => (
                   <li key={item} className="rounded-lg bg-slate-50 px-2.5 py-2">
-                    {item}
+                    <SourceBadges matchText={item} fallbackLabel={item} />
                   </li>
                 ))}
               </ul>
@@ -37,4 +38,3 @@ export function DocumentationPage() {
     </AppLayout>
   );
 }
-

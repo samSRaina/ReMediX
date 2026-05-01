@@ -1,4 +1,5 @@
 import { AppLayout, Surface } from '../components/Layout';
+import { SourceBadges } from '../components/SourceBadges';
 
 const STEPS = [
   {
@@ -47,6 +48,7 @@ export function MethodologyPage() {
             <Surface key={step.title}>
               <h2 className="text-lg font-semibold text-slate-900">{step.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.description}</p>
+              <SourceBadges matchText={`${step.title} ${step.description}`} className="mt-3" />
             </Surface>
           ))}
         </div>
@@ -54,4 +56,3 @@ export function MethodologyPage() {
     </AppLayout>
   );
 }
-

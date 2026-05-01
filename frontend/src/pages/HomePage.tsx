@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { getBioactivityByInchiKey, getCompoundByName, getCompoundBySmile, getDrugBankByInchiKey } from '../lib/api';
 import type { BioactivityRecord, DrugBankData, PubChemCompound } from '../types/api';
 import { AppLayout } from '../components/Layout';
+import { SourceBadges } from '../components/SourceBadges';
 
 type SortKey = keyof BioactivityRecord;
 type SortDirection = 'asc' | 'desc';
@@ -347,6 +348,7 @@ export function HomePage() {
 
           <TabPanels className="pt-5">
             <TabPanel>
+              <SourceBadges sourceKeys={['pubchem']} className="mb-3" />
               {!pubchemData ? (
                 <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No compound loaded yet.</p>
               ) : (
@@ -362,6 +364,7 @@ export function HomePage() {
             </TabPanel>
 
             <TabPanel>
+              <SourceBadges sourceKeys={['drugbank']} className="mb-3" />
               {!drugbankData ? (
                 <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No curated pharmacology returned for this compound.</p>
               ) : (
@@ -387,6 +390,7 @@ export function HomePage() {
             </TabPanel>
 
             <TabPanel>
+              <SourceBadges sourceKeys={['chembl', 'uniprot']} className="mb-3" />
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 {(['IC50', 'AC50', 'Ki'] as const).map((type) => (
                   <button
