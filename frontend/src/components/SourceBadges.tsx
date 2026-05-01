@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import type { SourceReference } from '../lib/sources';
 import { useSources } from '../lib/sources';
 
@@ -86,6 +86,7 @@ export function SourceBadges({
   className?: string;
 }) {
   const { sources } = useSources();
+  const instanceId = useId();
   const resolvedSources = useMemo(
     () => resolveSources(sources, sourceKeys, matchText),
     [sources, sourceKeys, matchText],
@@ -101,7 +102,7 @@ export function SourceBadges({
     <div className={`flex flex-wrap items-start gap-2 ${className}`}>
       {resolvedSources.map((source) => {
         const journalLine = buildJournalLine(source);
-        const tooltipId = `source-tooltip-${source.key.replace(/[^a-z0-9]+/gi, '-')}`;
+        const tooltipId = `source-tooltip-${instanceId}-${source.key.replace(/[^a-z0-9]+/gi, '-')}`;
         return (
           <div key={source.key} className="group relative inline-flex max-w-[240px]">
             <div
@@ -115,7 +116,7 @@ export function SourceBadges({
             <div
               id={tooltipId}
               role="tooltip"
-              className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 max-w-[75vw] translate-y-1 opacity-0 transition group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+              className="pointer-events-none invisible absolute left-0 top-full z-30 mt-2 w-72 max-w-[75vw] translate-y-1 opacity-0 transition group-hover:visible group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto group-focus-within:opacity-100"
             >
               <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600 shadow-xl">
                 <p className="text-sm font-semibold text-slate-900">

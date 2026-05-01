@@ -28,7 +28,7 @@ export function AboutPage() {
               title: 'Clinical Framing',
               body: 'Disease context is selected by users at runtime, avoiding hard-coded assumptions and preserving workflow flexibility.',
             },
-           ].map((item) => (
+          ].map((item) => (
             <Surface key={item.title}>
               <h2 className="text-lg font-semibold text-slate-900">{item.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.body}</p>
