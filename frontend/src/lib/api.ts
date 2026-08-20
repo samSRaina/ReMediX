@@ -10,6 +10,7 @@ import type {
   GeneExpressionsResponse,
   GeneMatchResponse,
   PubChemCompound,
+  RemedixScoreResponse,
 } from '../types/api';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
@@ -58,6 +59,11 @@ export function getGeneMatch(genes: string, disease: string) {
 export function getFinalGeneScore(genes: string, disease: string) {
   const query = new URLSearchParams({ genes, disease });
   return apiGet<FinalGeneScoreResponse>(`/api/finalGeneScore?${query.toString()}`);
+}
+
+export function getRemedixScore(inchiKey: string, disease: string) {
+  const query = new URLSearchParams({ disease });
+  return apiGet<RemedixScoreResponse>(`/api/remedix/inchikey/${encodeURIComponent(inchiKey)}/score?${query.toString()}`);
 }
 
 export function getDiseaseSignatureTable(disease: string, page = 1, pageSize = 100) {

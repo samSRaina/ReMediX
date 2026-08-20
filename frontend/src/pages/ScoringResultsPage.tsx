@@ -9,7 +9,7 @@ export function ScoringResultsPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Scoring Results</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Read final disease therapeutic effect</h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-            Final score ranges from 0 to 1 and captures the balance between beneficial and harmful disease-signature overlap after directional filtering.
+            ReMediX now retains both a signed internal score and a clipped public score, along with beneficial/harmful/net signals and disease-normalized coverage metrics.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
@@ -29,20 +29,19 @@ export function ScoringResultsPage() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Surface>
-            <p className="text-sm font-semibold text-slate-900">0.60 - 1.00</p>
-            <p className="mt-2 text-sm text-slate-600">Strong candidate: predominantly beneficial directional overlap.</p>
+            <p className="text-sm font-semibold text-slate-900">Raw Score &gt; 0</p>
+            <p className="mt-2 text-sm text-slate-600">Predominantly beneficial alignment after subtracting harmful directional burden.</p>
           </Surface>
           <Surface>
-            <p className="text-sm font-semibold text-slate-900">0.40 - 0.59</p>
-            <p className="mt-2 text-sm text-slate-600">Mixed effect: balanced beneficial/harmful overlap needs manual inspection.</p>
+            <p className="text-sm font-semibold text-slate-900">Raw Score ≈ 0</p>
+            <p className="mt-2 text-sm text-slate-600">Weak or mixed alignment where beneficial and harmful evidence nearly cancel.</p>
           </Surface>
           <Surface>
-            <p className="text-sm font-semibold text-slate-900">0.00 - 0.39</p>
-            <p className="mt-2 text-sm text-slate-600">Likely harmful for the selected disease signature in current evidence.</p>
+            <p className="text-sm font-semibold text-slate-900">Raw Score &lt; 0</p>
+            <p className="mt-2 text-sm text-slate-600">Predominantly harmful directional alignment; internal signed value is preserved for traceability.</p>
           </Surface>
         </div>
       </section>
     </AppLayout>
   );
 }
-

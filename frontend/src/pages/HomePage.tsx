@@ -29,7 +29,9 @@ const SMILES_PLACEHOLDER = 'CC(=O)OC1=CC=CC=C1C(=O)O';
 const SMILES_INVALID_PATTERN = /[.\[\]]/;
 const CHEMICAL_IDENTITY_ORDER = [
   'CID',
+  'CanonicalSMILES',
   'SMILES',
+  'InChI',
   'InChIKey',
   'IUPACName',
   'MolecularFormula',
@@ -41,7 +43,9 @@ const CHEMICAL_IDENTITY_ORDER = [
 ];
 const CHEMICAL_LABEL_OVERRIDES: Record<string, string> = {
   CID: 'CID',
+  CanonicalSMILES: 'Canonical SMILES',
   SMILES: 'SMILES',
+  InChI: 'InChI',
   InChIKey: 'InChIKey',
   IUPACName: 'IUPAC Name',
   MolecularFormula: 'Molecular Formula',
@@ -299,7 +303,7 @@ export function HomePage() {
 
               {geneSet.length > 0 ? (
                 <Link
-                  to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}`}
+                  to={`/geneMatch?genes=${encodeURIComponent(geneSet.join(','))}&inchikey=${encodeURIComponent(currentInchiKey)}`}
                   className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50"
                 >
                   Open Gene Match ({geneSet.length})

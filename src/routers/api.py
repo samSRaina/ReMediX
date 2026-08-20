@@ -23,6 +23,7 @@ router.add_api_route(
 # CREEDS endpoints
 router.add_api_route("/match", handlers.get_gene_match, methods=["GET"])
 router.add_api_route("/finalGeneScore", handlers.get_final_gene_score, methods=["GET"])
+router.add_api_route("/remedix/inchikey/{inchikey}/score", handlers.get_remedix_score, methods=["GET"])
 router.add_api_route("/geneAnalysis/accession/{accession_id}", handlers.get_gene_analysis, methods=["GET"])
 router.add_api_route("/diseaseSignature/table", handlers.get_disease_signature_table, methods=["GET"])
 router.add_api_route("/diseases", handlers.get_available_diseases, methods=["GET"])

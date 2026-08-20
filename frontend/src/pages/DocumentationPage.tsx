@@ -6,6 +6,14 @@ const docs = [
     title: 'Data Sources',
     items: ['PubChem', 'DrugBank', 'ChEMBL','UniProt', 'CREEDS', 'GeneCards', 'GEO', 'Reactome', 'OpenTargets' ],
   },
+  {
+    title: 'Scoring Outputs',
+    items: ['ReMediX Score (0-100)', 'RawReMediXScore (signed)', 'Beneficial Signal', 'Harmful Signal', 'Net Therapeutic Signal', 'Benefit Coverage', 'Harm Coverage', 'Target Coverage'],
+  },
+  {
+    title: 'Gene-level Traceability',
+    items: ['Gene', 'U/D observations', 'Disease Direction', 'Direction Consensus (DC)', 'Drug Action', 'Activity Strength', 'Classification', 'Gene Contribution'],
+  },
 ];
 
 export function DocumentationPage() {

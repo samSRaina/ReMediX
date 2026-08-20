@@ -3,31 +3,32 @@ import { SourceBadges } from '../components/SourceBadges';
 
 const STEPS = [
   {
-    title: 'Input Validation & Molecular Standardization',
-    description: 'Resolve user input (SMILES/compound name) into a canonical chemical structure.\n' +
-        'Filter out salts, mixtures, and non-biological entities to ensure only valid parent molecules proceed.',
+    title: '1) Drug Identification and Canonical Chemistry',
+    description: 'Resolve user input with PubChem and retain canonical identity fields (CID, Canonical SMILES, InChI/InChIKey, formula, molecular weight, and supporting physicochemical properties).',
   },
   {
-    title: 'Compound Annotation & Target Profiling\n',
-    description: 'Retrieve chemical identity and pharmacological data via PubChem, DrugBank, and ChEMBL APIs.\n' +
-        'Generate a drug–target gene list using IC₅₀ / Ki / AC₅₀ bioactivity data mapped to gene symbols and UniProt IDs.',
+    title: '2–4) Drug Info and Target Profiling',
+    description: 'Keep DrugBank annotation and ChEMBL target evidence, then normalize targets with UniProt identifiers for consistent downstream gene-level scoring.',
   },
   {
-    title: 'Perturbation Direction Mapping \n',
-    description: 'Determine whether each target gene is upregulated or downregulated in disease using CREEDS.\n' +
-        'Filter out ambiguous genes and retain only directionally confident targets.',
+    title: '5–7) Direction Consensus and Overlap',
+    description: 'For each disease gene, compute U/D observation counts from CREEDS and Direction Consensus DC=|U-D|/(U+D). Intersect drug targets with the unique CREEDS disease gene set before scoring.',
   },
   {
-    title: 'Disease Signature Integration & Network Context\n',
-    description: 'Compare drug targets against a weighted disease molecular signature\n' +
-        '(built from GeneCards, GEO, Reactome, Open Targets).\n' +
-        'Incorporate PPI network context (STRING/Cytoscape) to identify biologically relevant overlaps',
+    title: '8–9) Pharmacology-aware Contribution',
+    description: 'Use ChEMBL activity values to compute bounded activity strength and combine it with DC using GeneContribution = DC × (0.7 + 0.3 × ActivityStrength).',
   },
-    {
-    title: 'Therapeutic Relevance Scoring\n',
-    description: 'Classify interactions as beneficial or harmful based on transcriptomic reversal\n' +
-        'Compute a final normalized score (0–1) using weighted gene contributions and target selectivity\n' +
-        'delivering an interpretable drug–disease relevance output',
+  {
+    title: '10–12) Beneficial vs Harmful Signal',
+    description: 'Classify each matched gene as BENEFICIAL/HARMFUL/UNRESOLVED from disease direction and drug action mapping (IC50/Ki inhibitory, AC50 activating), then compute B, H, and NetSignal = B-H.',
+  },
+  {
+    title: '13–19) Disease-normalized Scoring',
+    description: 'Normalize by disease gene space (DiseaseTotal) to produce BenefitCoverage, HarmCoverage, NetCoverage, TargetCoverage, signed RawReMediXScore, and clipped public ReMediX Score (0–100).',
+  },
+  {
+    title: '20–21) Traceable Output',
+    description: 'Return both summary metrics and per-gene traceability (U, D, direction, DC, drug action, activity strength, classification, contribution) for transparent evidence tracking.',
   },
 ];
 
