@@ -8,10 +8,10 @@ logger = logging.getLogger(__name__)
 class PubChemClient:
     BASE_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound"
     DEFAULT_PROPERTIES = [
-        "CID",
-        "CanonicalSMILES",
+        #"CID",
+        #"CanonicalSMILES",
         "SMILES",
-        "InChI",
+        #"InChI",
         "IUPACName",
         "MolecularFormula",
         "MolecularWeight",
@@ -31,10 +31,11 @@ class PubChemClient:
         try:
             r = requests.get(url, timeout=10)
             r.raise_for_status()
-            payload = r.json()["PropertyTable"]["Properties"][0]
-            if "SMILES" not in payload and "CanonicalSMILES" in payload:
-                payload["SMILES"] = payload.get("CanonicalSMILES")
-            return payload
+            return r.json()["PropertyTable"]["Properties"][0]
+            # payload = r.json()["PropertyTable"]["Properties"][0]
+            # if "SMILES" not in payload and "CanonicalSMILES" in payload:
+            #     payload["SMILES"] = payload.get("CanonicalSMILES")
+            # return payload
         except requests.RequestException as e:
             status = getattr(e.response, 'status_code', None)
             logger.error(f"PubChem API error: {status or e}")
