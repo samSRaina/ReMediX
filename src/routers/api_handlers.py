@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from ..clients import chembl_client, creeds_client, drugbank_client, geneCards_client, pubchem_client
-from ..utils import final_gene_score
+from ..utils import final_gene_score, remedix_scoring
 
 _drugbank_client = drugbank_client.DrugBankClient()
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
@@ -58,7 +58,8 @@ async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str
         if not has_unfiltered_data:
             raise HTTPException(status_code=404, detail=f"No bioactivity data found for '{inchikey}'")
     gene_set = chembl.get_gene_set(inchikey)
-    return {"activities": result, "gene_set": sorted(gene_set)}
+    aggregated_targets = chembl.get_aggregated_targets_by_inchikey(inchikey)
+    return {"activities": result, "gene_set": sorted(gene_set), "aggregated_targets": aggregated_targets}
 
 
 # CREEDS match endpoint - matches each gene against disease signatures
@@ -82,6 +83,30 @@ async def get_final_gene_score(genes: str, disease: str):
         return final_gene_score.calculate_final_score(genes, disease)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+async def get_remedix_score(inchikey: str, disease: str):
+    if not inchikey or not inchikey.strip():
+        raise HTTPException(status_code=400, detail="InChIKey parameter is required")
+    if not disease or not disease.strip():
+        raise HTTPException(status_code=400, detail="Disease parameter is required")
+
+    chembl = chembl_client.ChEMBLClient()
+    aggregated_targets = chembl.get_aggregated_targets_by_inchikey(inchikey)
+    raw_activities = chembl.get_by_inchikey(inchikey)
+
+    try:
+        scoring = remedix_scoring.calculate_remedix_score(aggregated_targets, disease)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    return {
+        "inchikey": inchikey,
+        "disease": disease,
+        "aggregated_targets": aggregated_targets,
+        "raw_activities": raw_activities,
+        "scoring": scoring,
+    }
 
 
 async def get_target_data(inchikey: str, target_chembl_id: str):

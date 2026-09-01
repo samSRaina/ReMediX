@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,10 @@ class ChEMBLClient:
             'standard_type': act.get('standard_type') or '--',
             'standard_value': act.get('standard_value') or '--',
             'standard_units': act.get('standard_units') or '--',
+            'standard_relation': act.get('standard_relation') or '--',
+            'assay_chembl_id': act.get('assay_chembl_id') or '--',
+            'assay_type': act.get('assay_type') or '--',
+            'assay_description': act.get('assay_description') or '--',
             'protein_target_classification': protein_classification,
         }
 
@@ -228,6 +233,138 @@ class ChEMBLClient:
             'protein_classification': target_data.get('target_type'),
             'uniprot_accession': accessions[0] if len(accessions) == 1 else accessions if accessions else None
         }
+
+    @staticmethod
+    def _to_float(value) -> float | None:
+        try:
+            parsed = float(value)
+            if math.isnan(parsed) or math.isinf(parsed):
+                return None
+            return parsed
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _normalise_nm_value(value, units: str | None) -> float | None:
+        parsed = ChEMBLClient._to_float(value)
+        if parsed is None or parsed <= 0:
+            return None
+        normalized_units = str(units or '').strip().replace('μ', 'u').replace('µ', 'u').lower()
+        if normalized_units == 'nm':
+            return parsed
+        if normalized_units == 'um':
+            return parsed * 1_000.0
+        if normalized_units == 'mm':
+            return parsed * 1_000_000.0
+        if normalized_units == 'pm':
+            return parsed / 1_000.0
+        if normalized_units == 'fm':
+            return parsed / 1_000_000.0
+        if normalized_units == 'm':
+            return parsed * 1_000_000_000.0
+        return None
+
+    def get_aggregated_targets_by_inchikey(self, inchi_key: str, standard_types: tuple[str, ...] = ("IC50", "Ki", "AC50")) -> list[dict]:
+        allowed_types = {str(t).strip().upper() for t in standard_types if str(t).strip()}
+        activities = self._fetch_all_activities(inchi_key)
+        if not activities:
+            return []
+
+        aggregated: dict[str, dict] = {}
+        for act in activities:
+            std_type = str(act.get('standard_type') or '').strip().upper()
+            if std_type not in allowed_types:
+                continue
+
+            target_chembl_id = act.get('target_chembl_id')
+            target_info = self._get_target_cached(target_chembl_id) if target_chembl_id else {}
+            gene_symbol = self._extract_gene_symbol(target_info) if target_info else '--'
+            if not gene_symbol or gene_symbol == '--':
+                continue
+
+            bucket = aggregated.setdefault(
+                gene_symbol,
+                {
+                    'gene_symbol': gene_symbol,
+                    'uniprot_ids': set(),
+                    'target_chembl_ids': set(),
+                    'target_names': set(),
+                    'target_types': set(),
+                    'target_organisms': set(),
+                    'protein_target_classifications': set(),
+                    'measurements': [],
+                    'activity_summary': {},
+                },
+            )
+
+            uniprot_id = self._extract_uniprot_id(target_info) if target_info else '--'
+            if uniprot_id and uniprot_id != '--':
+                bucket['uniprot_ids'].add(uniprot_id)
+            if target_chembl_id:
+                bucket['target_chembl_ids'].add(target_chembl_id)
+            if act.get('target_pref_name'):
+                bucket['target_names'].add(act.get('target_pref_name'))
+            if act.get('target_organism'):
+                bucket['target_organisms'].add(act.get('target_organism'))
+            if target_info.get('target_type'):
+                bucket['target_types'].add(target_info.get('target_type'))
+            protein_class = self._extract_protein_classification(target_info) if target_info else '--'
+            if protein_class and protein_class != '--':
+                bucket['protein_target_classifications'].add(protein_class)
+
+            measurement = {
+                'activity_type': std_type,
+                'activity_value': act.get('standard_value'),
+                'activity_units': act.get('standard_units'),
+                'relation': act.get('standard_relation'),
+                'assay_chembl_id': act.get('assay_chembl_id'),
+                'assay_type': act.get('assay_type'),
+                'assay_description': act.get('assay_description'),
+                'target_chembl_id': target_chembl_id,
+            }
+            normalized_nm = self._normalise_nm_value(act.get('standard_value'), act.get('standard_units'))
+            if normalized_nm is not None:
+                measurement['activity_value_nm'] = normalized_nm
+            bucket['measurements'].append(measurement)
+
+            per_type = bucket['activity_summary'].setdefault(
+                std_type,
+                {'count': 0, 'representative_value_nm': None, 'units': set()},
+            )
+            per_type['count'] += 1
+            units = str(act.get('standard_units') or '').strip()
+            if units:
+                per_type['units'].add(units)
+            if normalized_nm is not None and (
+                per_type['representative_value_nm'] is None or normalized_nm < per_type['representative_value_nm']
+            ):
+                per_type['representative_value_nm'] = normalized_nm
+
+        output = []
+        for gene_symbol in sorted(aggregated.keys()):
+            bucket = aggregated[gene_symbol]
+            summary = {}
+            for activity_type, data in bucket['activity_summary'].items():
+                summary[activity_type] = {
+                    'count': data['count'],
+                    'representative_value_nm': data['representative_value_nm'],
+                    'units': sorted(data['units']),
+                }
+            output.append(
+                {
+                    'gene_symbol': gene_symbol,
+                    'uniprot_ids': sorted(bucket['uniprot_ids']),
+                    'target_chembl_ids': sorted(bucket['target_chembl_ids']),
+                    'target_names': sorted(bucket['target_names']),
+                    'target_types': sorted(bucket['target_types']),
+                    'target_organisms': sorted(bucket['target_organisms']),
+                    'protein_target_classifications': sorted(bucket['protein_target_classifications']),
+                    'measurements': bucket['measurements'],
+                    'activity_summary': summary,
+                    'measurement_count': len(bucket['measurements']),
+                }
+            )
+        return output
 
 if __name__ == "__main__":
     inchi_key = "ZKLPARSLTMPFCP-UHFFFAOYSA-N"

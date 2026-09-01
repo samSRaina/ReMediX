@@ -29,6 +29,17 @@ def _get_disease_signature_entry(disease: str) -> dict:
     raise ValueError(f"Disease '{disease}' not found in CREEDS signatures")
 
 
+def _get_disease_signature_entries(disease: str) -> list[dict]:
+    disease_key = (disease or '').strip().lower()
+    matches = [
+        entry for entry in _load_disease_signature_dataset()
+        if str(entry.get('disease_name', '')).strip().lower() == disease_key
+    ]
+    if not matches:
+        raise ValueError(f"Disease '{disease}' not found in CREEDS signatures")
+    return matches
+
+
 def get_disease_signatures(disease) -> list:
     entry = _get_disease_signature_entry(disease)
     return entry.get('up_genes', []) + entry.get('down_genes', [])
@@ -60,6 +71,59 @@ def export_disease_signature_table(disease: str, output_path: Path = DISEASE_SIG
 
     payload['export_file'] = str(output_path)
     return payload
+
+
+def build_disease_direction_consensus(disease: str) -> dict:
+    """
+    Aggregate UP/DOWN observations for each disease gene and compute:
+    DC = |U-D| / (U+D)
+    """
+    entries = _get_disease_signature_entries(disease)
+    per_gene: dict[str, dict[str, int]] = {}
+
+    for entry in entries:
+        for row in entry.get('up_genes', []) or []:
+            gene = _extract_gene_symbol(row)
+            if not gene:
+                continue
+            bucket = per_gene.setdefault(gene, {'U': 0, 'D': 0})
+            bucket['U'] += 1
+        for row in entry.get('down_genes', []) or []:
+            gene = _extract_gene_symbol(row)
+            if not gene:
+                continue
+            bucket = per_gene.setdefault(gene, {'U': 0, 'D': 0})
+            bucket['D'] += 1
+
+    records = []
+    for gene in sorted(per_gene.keys()):
+        up_count = int(per_gene[gene]['U'])
+        down_count = int(per_gene[gene]['D'])
+        total = up_count + down_count
+        dc = 0.0 if total == 0 else abs(up_count - down_count) / total
+        if up_count > down_count:
+            disease_direction = 'UP'
+        elif down_count > up_count:
+            disease_direction = 'DOWN'
+        else:
+            disease_direction = 'AMBIGUOUS'
+        records.append(
+            {
+                'gene': gene,
+                'U': up_count,
+                'D': down_count,
+                'disease_direction': disease_direction,
+                'dc': _round_metric(dc),
+            }
+        )
+
+    return {
+        'disease': disease,
+        'source_entry_count': len(entries),
+        'gene_records': records,
+        'disease_gene_set': [row['gene'] for row in records],
+        'disease_total': len(records),
+    }
 
 
 def _normalize_direction(direction: str) -> str | None:
