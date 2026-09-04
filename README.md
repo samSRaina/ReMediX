@@ -1,4 +1,4 @@
-# ReMediX
+# remedix
 
 Drug-repurposing analysis: resolve a compound, gather its protein targets, and
 score its therapeutic alignment against a disease using CREEDS gene-expression
