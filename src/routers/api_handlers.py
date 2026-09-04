@@ -55,11 +55,10 @@ async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str
     except ConnectionError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    # Distinguish "no data for compound" from "filter has no matches".
-    if not result:
-        has_unfiltered_data = bool(await run_in_threadpool(chembl.get_by_inchikey, inchikey))
-        if not has_unfiltered_data:
-            raise HTTPException(status_code=404, detail=f"No bioactivity data found for '{inchikey}'")
+    # Distinguish "compound has no activity data at all" from "filter has no
+    # matches". Uses a 1-row existence probe — never a full unfiltered fetch.
+    if not result and not await run_in_threadpool(chembl.has_bioactivity_data, inchikey):
+        raise HTTPException(status_code=404, detail=f"No bioactivity data found for '{inchikey}'")
     gene_set = await run_in_threadpool(chembl.get_gene_set, inchikey)
     aggregated_targets = await run_in_threadpool(chembl.get_aggregated_targets_by_inchikey, inchikey)
     return {"activities": result, "gene_set": sorted(gene_set), "aggregated_targets": aggregated_targets}

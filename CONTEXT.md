@@ -351,6 +351,44 @@ All verification below ran on this machine after each change.
 - PubChem name+SMILES → 200; ChEMBL target lookup → 200; SPA `/` → 200.
 - Frontend `tsc --noEmit` clean; `vite build` clean (248 KB gz 77.6 KB).
 
+### Bioactivity AC50/IC50/Ki correctness fix (2026 session #2)
+- **Defect found**: filtered bioactivity queries (AC50/IC50/Ki) were served from a
+  `[:2000]`-capped UNFILTERED fetch, then standard_type-filtered client-side. For
+  well-studied compounds (CHEMBL25/aspirin: 4087 activities) the cap silently truncated
+  per-type results (client saw IC50 388 vs true 458, Ki 144 vs 152, AC50 **1 vs 133**) —
+  gene sets and scoring inputs were incomplete. Exact-match filtering also meant any
+  case-variant input (`ki`) returned nothing. The no-data fallback refetched everything
+  unfiltered; SDK HTTP errors (BaseHttpException) escaped the `except ConnectionError`
+  503 mapping.
+- **Fix** (`src/clients/chembl_client.py`, `src/routers/api_handlers.py`):
+  - `parse_activity_types()` canonicalises user input (case-insensitive, multi-value,
+    `KI`→`Ki`, list/string/None accepted) — stable sorted tuple as cache key.
+  - **Server-side filter pushdown**: typed fetches use
+    `activity.filter(molecule_chembl_id=…, standard_type__in=[…])` — the API returns the
+    COMPLETE per-type row set (verified: aspirin IC50 458 / Ki 152 / AC50 133 = 743;
+    combined `standard_type__in` REST form returns exactly 743 = 458+152+133).
+    ChEMBL's data API rejects POST (405) — the SDK's GETs with
+    `X-HTTP-Method-Override: GET` are the only working transport; slice caps stay
+    (unfiltered 2000 / typed 5000) and now LOG a warning when truncation occurs
+    (`_warn_if_truncated` reads `api_total_count` off the *sliced* queryset — filter()
+    and [:n] both return clones).
+  - `get_by_inchikey`, `get_gene_set`, `get_aggregated_targets_by_inchikey` all use the
+    typed fetch; aggregation compares upper-cased forms (emits `activity_type: "KI"` per
+    the historical contract — scoring + frontend compare case-insensitively).
+  - `_resolve_molecule_chembl_id()` cached (inchi_key→chembl_id, failures never cached);
+    molecule lookup sliced `[:1]`. `has_bioactivity_data()` = 1-row existence probe; the
+    bioactivity handler uses it for the no-data 404 instead of a full unfiltered refetch.
+  - `_get_target_cached` degrades to `{}` (→ `'--'` enrichment) on target fetch failure
+    instead of 500-ing the whole response.
+- **Live verification** (fresh caches each run, real API): aspirin IC50=458, Ki=152,
+  AC50=133 (case variants `ki`/`KI`/`ac50` all OK); combined 743; aggregated targets
+  155 genes / 465 measurements — exact match to an independent recount of gene-symbol-
+  bearing rows (278 rows target gene-symbol-less targets, skipped by design as before);
+  CHEMBL1000 IC50 23 / Ki 11 / AC50 123 (under cap — matches pre-fix behavior).
+  Endpoint tests (uvicorn): 200s, cold typed fetch ~4.5 s then ~0.02–0.05 s cached;
+  unknown compound → 404; `/api/remedix/.../score` → 200 with score 0.1173 (raw
+  activities path still the bounded unfiltered 2000-row view); target endpoint 200.
+
 ### Still open (from §5, not in this session's scope)
 - Blocking-but-bounded ChEMBL work still runs in threadpool workers (fine); a full
   httpx/async rewrite is optional future work.

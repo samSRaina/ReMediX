@@ -1,5 +1,6 @@
 import logging
 import math
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -14,12 +15,19 @@ _client_lock = threading.Lock()
 _executor: ThreadPoolExecutor | None = None
 _executor_lock = threading.Lock()
 
-# Upper bound on activities fetched per molecule. Well-studied compounds have
-# thousands of rows; beyond this the payload is huge and latency dominates.
-# Fetches are slice-bounded (QuerySet[:cap]) — the SDK's pagination stops at
-# the slice stop, so this caps BOTH the result size and the number of HTTP
-# round trips (at page size 100, 2000 records = 20 requests, not 100).
+# Upper bound on activities fetched per molecule for the UNFILTERED path
+# (bioactivity table "all types" view). Well-studied compounds have thousands
+# of rows; beyond this the payload is huge and latency dominates. When the cap
+# is hit a warning is logged so truncation is visible, never silent.
 MAX_ACTIVITIES_PER_MOLECULE = 2000
+
+# Upper bound for a FILTERED (typed) fetch. The server-side standard_type__in
+# filter already shrinks the result set, so the cap can be more generous while
+# still bounding payload/latency for pathological molecules.
+MAX_TYPED_ACTIVITIES_PER_MOLECULE = 5000
+
+# Default activity types used by the gene-set / scoring paths.
+PHARMACOLOGY_ACTIVITY_TYPES = ("IC50", "Ki", "AC50")
 
 # Raise the ChEMBL SDK page size from its default 20 to 100 (the API's max).
 # Must happen BEFORE the first `new_client` import/construction because the
@@ -35,6 +43,11 @@ def _raise_sdk_page_size() -> None:
 # Cache size bounds (entries) to prevent unbounded memory growth.
 MAX_TARGET_CACHE_ENTRIES = 20_000
 MAX_ACTIVITIES_CACHE_ENTRIES = 500
+MAX_MOLECULE_CACHE_ENTRIES = 2_000
+
+# ChEMBL stores these standard types with this exact casing. Canonicalisation
+# maps whatever the caller sends (ic50, ki, KI, "ic50, ki") onto this.
+_CANONICAL_ACTIVITY_TYPES = {"IC50": "IC50", "KI": "Ki", "AC50": "AC50"}
 
 
 def _get_chembl_client():
@@ -49,7 +62,7 @@ def _get_chembl_client():
                     _new_client = new_client
                 except Exception as e:
                     logger.error(f"Failed to connect to ChEMBL API: {e}")
-                    raise ConnectionError(f"ChEMBL API is currently unavailable: {e}")
+                    raise ConnectionError(f"ChEMBL API is currently unavailable: {e}") from e
     return _new_client
 
 
@@ -62,6 +75,33 @@ def _get_executor() -> ThreadPoolExecutor:
                     max_workers=8, thread_name_prefix="chembl-fetch"
                 )
     return _executor
+
+
+def parse_activity_types(standard_type) -> tuple[str, ...]:
+    """Canonicalise a user-supplied standard_type filter.
+
+    Accepts None, a single value ("IC50"), or multi-values ("ic50,ki",
+    "IC50|AC50", "ki; ic50"). Casing is irrelevant; separators are
+    comma, semicolon, pipe or whitespace. Unknown types pass through
+    upper-cased (the server may know them) but well-known types are
+    normalised to ChEMBL's exact spelling (e.g. KI -> Ki).
+
+    Returns a tuple sorted for stable cache keys; empty tuple means
+    "no filter".
+    """
+    if not standard_type:
+        return ()
+    if isinstance(standard_type, (list, tuple, set)):
+        tokens = [str(t) for t in standard_type]
+    else:
+        tokens = re.split(r"[,;|\s]+", str(standard_type))
+    canonical = set()
+    for token in tokens:
+        token = token.strip().upper()
+        if not token:
+            continue
+        canonical.add(_CANONICAL_ACTIVITY_TYPES.get(token, token))
+    return tuple(sorted(canonical))
 
 
 class _BoundedCache:
@@ -102,6 +142,8 @@ class ChEMBLClient:
     # Class-level caches shared across instances, now thread-safe and bounded.
     _target_cache = _BoundedCache(MAX_TARGET_CACHE_ENTRIES)
     _activities_cache = _BoundedCache(MAX_ACTIVITIES_CACHE_ENTRIES)
+    # inchi_key -> molecule_chembl_id (or None when the compound is unknown).
+    _molecule_cache = _BoundedCache(MAX_MOLECULE_CACHE_ENTRIES)
 
     def __init__(self):
         self._molecule = None
@@ -126,11 +168,160 @@ class ChEMBLClient:
             self._target = _get_chembl_client().target
         return self._target
 
+    # ------------------------------------------------------------------
+    # Molecule resolution
+    # ------------------------------------------------------------------
+    def _resolve_molecule_chembl_id(self, inchi_key: str) -> str | None:
+        """Map a standard InChIKey to its molecule_chembl_id (cached)."""
+        if not inchi_key:
+            return None
+        if self._molecule_cache.contains(inchi_key):
+            return self._molecule_cache.get(inchi_key)
+
+        try:
+            # Slice to one record: we only need the identifier, and this keeps
+            # the molecule payload (which is fat) to a single record.
+            compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key)[:1])
+        except Exception as e:
+            logger.error(f"Error fetching molecule for {inchi_key}: {e}")
+            return None  # do not cache failures; a later retry may succeed
+
+        chembl_id = compound[0].get("molecule_chembl_id") if compound else None
+        self._molecule_cache.put(inchi_key, chembl_id)
+        return chembl_id
+
+    # ------------------------------------------------------------------
+    # Activity fetching
+    # ------------------------------------------------------------------
+    def _fetch_raw_activities(self, chembl_id: str) -> list:
+        """Fetch a molecule's activities, unfiltered, bounded by MAX_ACTIVITIES_PER_MOLECULE.
+
+        When the cap truncates (server total_count > cap), a warning is
+        logged so truncation is visible, never silent.
+        """
+        try:
+            sliced = self.activity.filter(molecule_chembl_id=chembl_id)[:MAX_ACTIVITIES_PER_MOLECULE]
+            activities = list(sliced)
+        except Exception as e:
+            logger.error(f"Error fetching activities for {chembl_id}: {e}")
+            return []
+
+        self._warn_if_truncated(chembl_id, sliced, MAX_ACTIVITIES_PER_MOLECULE)
+        return activities
+
+    def _fetch_typed_activities(self, chembl_id: str, activity_types: tuple[str, ...]) -> list:
+        """Fetch activities for the given standard_types ONLY, server-side.
+
+        The standard_type filter is pushed down to the ChEMBL API via
+        standard_type__in, so the client fetches exactly the rows it needs
+        (complete — no cap-induced silent truncation of a type) instead of
+        fetching every activity record and discarding ~98% locally.
+        """
+        try:
+            sliced = self.activity.filter(
+                molecule_chembl_id=chembl_id,
+                standard_type__in=list(activity_types),
+            )[:MAX_TYPED_ACTIVITIES_PER_MOLECULE]
+            activities = list(sliced)
+        except Exception as e:
+            logger.error(f"Error fetching activities for {chembl_id} (types={activity_types}): {e}")
+            return []
+
+        self._warn_if_truncated(chembl_id, sliced, MAX_TYPED_ACTIVITIES_PER_MOLECULE)
+        return activities
+
+    @staticmethod
+    def _warn_if_truncated(chembl_id: str, qs, cap: int) -> None:
+        """Log a visible warning when the slice cap cut results short."""
+        try:
+            total = qs.query.api_total_count
+        except AttributeError:
+            return
+        if total and total > cap:
+            logger.warning(
+                f"ChEMBL activities for {chembl_id} truncated at {cap} of {total} rows"
+            )
+
+    def _prefetch_targets(self, activities: list) -> None:
+        """Batch-fetch every target referenced by these activities (parallel chunks)."""
+        unique_target_ids = list(set(
+            act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')
+        ))
+
+        # Split into chunks of 50 to avoid URL length issues or timeouts.
+        chunk_size = 50
+        chunks = [unique_target_ids[i:i + chunk_size] for i in range(0, len(unique_target_ids), chunk_size)]
+
+        # Fetch chunks in PARALLEL on the shared executor; consume results so
+        # exceptions surface instead of being swallowed by executor.map.
+        if chunks:
+            futures = [_get_executor().submit(self._batch_fetch_targets, chunk) for chunk in chunks]
+            for future in futures:
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.warning(f"Target chunk fetch failed: {e}")
+
+    def _activities_for_types(self, inchi_key: str, activity_types: tuple[str, ...]) -> list:
+        """Cached activity fetch. Empty tuple = all types (unfiltered)."""
+        cache_key = (inchi_key, activity_types)
+        cached = self._activities_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        chembl_id = self._resolve_molecule_chembl_id(inchi_key)
+        if not chembl_id:
+            # Unknown compound: cache the empty answer keyed per type-set so
+            # repeated asks stay free; molecule-lookup failures are never
+            # cached, so a transient API error stays retryable.
+            self._activities_cache.put(cache_key, [])
+            return []
+
+        if activity_types:
+            activities = self._fetch_typed_activities(chembl_id, activity_types)
+        else:
+            activities = self._fetch_raw_activities(chembl_id)
+
+        if activities:
+            self._prefetch_targets(activities)
+
+        self._activities_cache.put(cache_key, activities)
+        return activities
+
+    # Kept for backwards compatibility with earlier call sites.
+    def _fetch_all_activities(self, inchi_key: str) -> list:
+        """Fetch ALL activities for a molecule (unfiltered, bounded, cached)."""
+        return self._activities_for_types(inchi_key, ())
+
+    def has_bioactivity_data(self, inchi_key: str) -> bool:
+        """Cheap existence check: does this compound have ANY activity rows?
+
+        One molecule lookup (cached) + a single activity request returning at
+        most one row — no full fetch, no enrichment.
+        """
+        chembl_id = self._resolve_molecule_chembl_id(inchi_key)
+        if not chembl_id:
+            return False
+        try:
+            return bool(list(self.activity.filter(molecule_chembl_id=chembl_id)[:1]))
+        except Exception as e:
+            logger.error(f"Error checking activity existence for {chembl_id}: {e}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Target helpers
+    # ------------------------------------------------------------------
     def _get_target_cached(self, target_chembl_id: str) -> dict:
         """Fetch target data with caching to avoid repeated API calls."""
         cached = self._target_cache.get(target_chembl_id)
         if cached is None:
-            cached = self.target.get(target_chembl_id) or {}
+            try:
+                cached = self.target.get(target_chembl_id) or {}
+            except Exception as e:
+                # Degrade to '--' enrichment instead of failing the whole
+                # bioactivity response; do NOT cache so a retry can succeed.
+                logger.warning(f"Target fetch failed for {target_chembl_id}: {e}")
+                return {}
             self._target_cache.put(target_chembl_id, cached)
         return cached
 
@@ -181,60 +372,9 @@ class ChEMBLClient:
                 return accession
         return '--'
 
-    def _fetch_all_activities(self, inchi_key: str) -> list:
-        """
-        Fetch the molecule + its activities (bounded).
-        Results are cached on the class so repeated calls are free.
-        """
-        cached = self._activities_cache.get(inchi_key)
-        if cached is not None:
-            return cached
-
-        try:
-            compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key))
-        except Exception as e:
-            logger.error(f"Error fetching molecule for {inchi_key}: {e}")
-            # Do not cache failures; allow a later retry.
-            return []
-
-        if not compound:
-            self._activities_cache.put(inchi_key, [])
-            return []
-
-        chembl_id = compound[0].get('molecule_chembl_id')
-
-        try:
-            # Slice-bounded fetch: the SDK's pagination stops at the slice
-            # stop, capping both payload size and HTTP round trips.
-            activities = list(
-                self.activity.filter(molecule_chembl_id=chembl_id)[:MAX_ACTIVITIES_PER_MOLECULE]
-            )
-        except Exception as e:
-            logger.error(f"Error fetching activities for {chembl_id}: {e}")
-            return []
-
-        # Batch-fetch ALL targets referenced by these activities in chunks.
-        unique_target_ids = list(set(
-            act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')
-        ))
-
-        # Split into chunks of 50 to avoid URL length issues or timeouts.
-        chunk_size = 50
-        chunks = [unique_target_ids[i:i + chunk_size] for i in range(0, len(unique_target_ids), chunk_size)]
-
-        # Fetch chunks in PARALLEL on the shared executor; consume results so
-        # exceptions surface instead of being swallowed by executor.map.
-        if chunks:
-            futures = [_get_executor().submit(self._batch_fetch_targets, chunk) for chunk in chunks]
-            for future in futures:
-                try:
-                    future.result()
-                except Exception as e:
-                    logger.warning(f"Target chunk fetch failed: {e}")
-
-        self._activities_cache.put(inchi_key, activities)
-        return activities
-
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
     def _enrich_activity(self, act: dict, include_target_details: bool = False) -> dict:
         """Build an enriched activity dict from a raw ChEMBL activity record."""
         target_chembl_id = act.get('target_chembl_id')
@@ -267,14 +407,25 @@ class ChEMBLClient:
 
         return activity_entry
 
-    def get_by_inchikey(self, inchi_key: str, standard_type: str = None, include_target_details: bool = False, only_with_target_type: bool = False) -> list:
-        activities = self._fetch_all_activities(inchi_key)
+    def get_by_inchikey(self, inchi_key: str, standard_type=None, include_target_details: bool = False, only_with_target_type: bool = False) -> list:
+        """Enriched activity rows for a compound, optionally filtered by standard_type.
+
+        The standard_type filter is pushed down to the ChEMBL API
+        (standard_type__in), so filtered queries return the COMPLETE set of
+        matching rows instead of a cap-truncated slice of an unfiltered
+        fetch. Callers may pass "IC50", "ic50,ki", ["IC50", "Ki"], etc.
+        """
+        activity_types = parse_activity_types(standard_type)
+        activities = self._activities_for_types(inchi_key, activity_types)
         if not activities:
             return []
 
-        # Filter by standard_type if provided
-        if standard_type:
-            activities = [act for act in activities if act.get('standard_type') == standard_type]
+        # Defensive residue filter: the server already filtered, but keep the
+        # guarantee that every returned row matches the requested type set
+        # exactly (guards against type-spelling drift between layers).
+        if activity_types:
+            allowed = set(activity_types)
+            activities = [act for act in activities if act.get('standard_type') in allowed]
 
         act_data = []
         for act in activities:
@@ -286,25 +437,26 @@ class ChEMBLClient:
         return act_data
 
     def get_gene_set(self, inchi_key: str) -> set:
+        """Collect all valid gene symbols for IC50, AC50, and Ki.
+
+        Uses the typed (server-side filtered) cached fetch — complete and
+        cheaper than an unfiltered fetch.
         """
-        Collect all valid gene symbols for IC50, AC50, and Ki.
-        Uses the same cached activities — no extra API calls.
-        """
-        activities = self._fetch_all_activities(inchi_key)
+        activity_types = parse_activity_types(PHARMACOLOGY_ACTIVITY_TYPES)
+        activities = self._activities_for_types(inchi_key, activity_types)
         gene_set = set()
         for act in activities:
-            if act.get('standard_type') in ("IC50", "AC50", "Ki"):
-                target_chembl_id = act.get('target_chembl_id')
-                if target_chembl_id:
-                    target_info = self._get_target_cached(target_chembl_id)
-                    gene = self._extract_gene_symbol(target_info) if target_info else '--'
-                    if gene and gene != '--':
-                        gene_set.add(gene)
+            target_chembl_id = act.get('target_chembl_id')
+            if target_chembl_id:
+                target_info = self._get_target_cached(target_chembl_id)
+                gene = self._extract_gene_symbol(target_info) if target_info else '--'
+                if gene and gene != '--':
+                    gene_set.add(gene)
         return gene_set
 
     def get_target_data(self, target_chembl_id: str) -> dict:
-        """
-        Fetch detailed target information using target_chembl_id.
+        """Fetch detailed target information using target_chembl_id.
+
         Uses cached data if available.
         """
         target_data = self._get_target_cached(target_chembl_id)
@@ -354,16 +506,26 @@ class ChEMBLClient:
             return parsed * 1_000_000_000.0
         return None
 
-    def get_aggregated_targets_by_inchikey(self, inchi_key: str, standard_types: tuple[str, ...] = ("IC50", "Ki", "AC50")) -> list[dict]:
-        allowed_types = {str(t).strip().upper() for t in standard_types if str(t).strip()}
-        activities = self._fetch_all_activities(inchi_key)
+    def get_aggregated_targets_by_inchikey(self, inchi_key: str, standard_types: tuple[str, ...] = PHARMACOLOGY_ACTIVITY_TYPES) -> list[dict]:
+        """Aggregate pharmacology rows per gene symbol, using the typed fetch."""
+        allowed_types = set(parse_activity_types(standard_types))
+        if not allowed_types:
+            allowed_types = set(parse_activity_types(PHARMACOLOGY_ACTIVITY_TYPES))
+
+        activity_types = tuple(sorted(allowed_types))
+        activities = self._activities_for_types(inchi_key, activity_types)
         if not activities:
             return []
+
+        # Measurements report activity_type upper-cased (historical contract:
+        # scoring and the frontend compare case-insensitively), so match on
+        # the upper-cased form of the canonical spellings.
+        allowed_upper = {t.upper() for t in allowed_types}
 
         aggregated: dict[str, dict] = {}
         for act in activities:
             std_type = str(act.get('standard_type') or '').strip().upper()
-            if std_type not in allowed_types:
+            if std_type not in allowed_upper:
                 continue
 
             target_chembl_id = act.get('target_chembl_id')
@@ -456,7 +618,28 @@ class ChEMBLClient:
             )
         return output
 
+
 if __name__ == "__main__":
-    inchi_key = "ZKLPARSLTMPFCP-UHFFFAOYSA-N"
+    # Small live debug probe: python -m src.clients.chembl_client
+    import collections
+
+    inchi_key = "ZZUFCTLCJUWOSV-UHFFFAOYSA-N"  # FUROSIDE
     obj = ChEMBLClient()
-    print(type(obj.get_by_inchikey(inchi_key, "IC50")))
+
+    for label, types in [
+        ("unfiltered", None),
+        ("IC50", "IC50"),
+        ("Ki", "ki"),          # lowercase on purpose: exercises canonicalisation
+        ("AC50", "ac50"),
+        ("IC50+Ki+AC50", "ic50, ki, ac50"),
+    ]:
+        rows = obj.get_by_inchikey(inchi_key, types)
+        dist = collections.Counter(r["standard_type"] for r in rows)
+        print(f"{label:>12}: {len(rows):4d} rows  {dict(dist)}")
+
+    genes = obj.get_gene_set(inchi_key)
+    print(f"gene_set: {len(genes)} genes -> {sorted(genes)[:10]} ...")
+
+    agg = obj.get_aggregated_targets_by_inchikey(inchi_key)
+    print(f"aggregated_targets: {len(agg)} genes, "
+          f"{sum(g['measurement_count'] for g in agg)} measurements")
