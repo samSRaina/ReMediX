@@ -11,13 +11,13 @@ RATIO_THRESHOLD = 1.1
 
 @lru_cache(maxsize=1)
 def _load_disease_signature_dataset() -> list:
-    with open(DISEASE_SIG, 'r') as file:
+    with open(DISEASE_SIG, 'r', encoding='utf-8') as file:
         return json.load(file)
 
 
 @lru_cache(maxsize=1)
 def _load_drug_perturbation_dataset() -> list:
-    with open(SINGLE_DRUG_PERTURBATION, 'r') as file:
+    with open(SINGLE_DRUG_PERTURBATION, 'r', encoding='utf-8') as file:
         return json.load(file)
 
 
@@ -63,10 +63,14 @@ def build_disease_signature_table(disease: str) -> dict:
 
 
 def export_disease_signature_table(disease: str, output_path: Path = DISEASE_SIGNATURE_TABLE) -> dict:
-    """Write the normalized disease signature table to JSON and return the payload."""
+    """Write the normalized disease signature table to JSON and return the payload.
+
+    CLI/admin helper only — never called from request handlers (a GET must
+    not mutate server state).
+    """
     payload = build_disease_signature_table(disease)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w') as file:
+    with open(output_path, 'w', encoding='utf-8') as file:
         json.dump(payload, file, indent=2)
 
     payload['export_file'] = str(output_path)

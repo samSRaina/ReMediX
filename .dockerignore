@@ -1,0 +1,49 @@
+# Build context should contain only what the image needs.
+# https://docs.docker.com/build/building/context/
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Python
+.venv
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Node / frontend build artifacts (dist is copied explicitly when needed)
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Local data — mounted or baked at deploy time, not in build context.
+# Uncomment when images must not contain large datasets:
+# src/data/CREEDS
+# src/data/drugBank
+# src/data/PPInteraction
+# src/data/geneCards
+# src/data/data_set.xlsx
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+
+# Docs / CI / IDE
+CONTEXT.md
+architecture.md
+srs-document.pdf
+.github
+.idea
+.vscode
+netlify.toml
+docker-compose.yaml
+run.py
+
+# OS cruft
+.DS_Store
+Thumbs.db
+.tmp

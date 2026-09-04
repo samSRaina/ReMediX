@@ -23,14 +23,6 @@ project/
 │   │   │   └── order.py
 │   │   └── exceptions.py
 │   │
-│   ├── application/
-│   │   ├── users/
-│   │   │   ├── create_user.py
-│   │   │   └── get_user.py
-│   │   └── orders/
-│   │       ├── create_order.py
-│   │       └── get_order.py
-│   │
 │   ├── infrastructure/
 │   │   ├── database/
 │   │   │   ├── session.py

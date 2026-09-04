@@ -1,17 +1,39 @@
- services:
-   database:
-     image: postgres:alpine
-     env_file:
-       - .env
-     environment:
-        POSTGRES_USER: ${POSTGRES_USER}
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        POSTGRES_DATABASE: ${POSTGRES_DATABASE}
-     volumes:
-       - postgres_dat:/var/lib/postgresql/data
-      # - ./sql/migrations/
-     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+services:
+  # Local Postgres — reserved for the planned data migration (see CONTEXT.md).
+  # Not used by the API yet; docker compose up starts it for development
+  # against the future schema.
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-remedix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-remedix}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # ReMediX API. Data files are expected at /app/src/data — mount your local
+  # src/data directory (it is excluded from the build context on purpose).
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./src/data:/app/src/data:ro
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

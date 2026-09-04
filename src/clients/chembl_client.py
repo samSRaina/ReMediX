@@ -1,28 +1,107 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
 import math
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
 # Lazy import - ChEMBL client will be loaded on first use
 _new_client = None
+_client_lock = threading.Lock()
+
+# Shared, process-wide executor for batch target fetching. Created once and
+# reused across requests instead of per-call pools.
+_executor: ThreadPoolExecutor | None = None
+_executor_lock = threading.Lock()
+
+# Upper bound on activities fetched per molecule. Well-studied compounds have
+# thousands of rows; beyond this the payload is huge and latency dominates.
+# Fetches are slice-bounded (QuerySet[:cap]) — the SDK's pagination stops at
+# the slice stop, so this caps BOTH the result size and the number of HTTP
+# round trips (at page size 100, 2000 records = 20 requests, not 100).
+MAX_ACTIVITIES_PER_MOLECULE = 2000
+
+# Raise the ChEMBL SDK page size from its default 20 to 100 (the API's max).
+# Must happen BEFORE the first `new_client` import/construction because the
+# QuerySet reads Settings.MAX_LIMIT at query time. This reduces HTTP calls
+# 5x with zero behavior change.
+def _raise_sdk_page_size() -> None:
+    from chembl_webresource_client.settings import Settings
+
+    settings = Settings.Instance()
+    if settings.MAX_LIMIT < 100:
+        settings.MAX_LIMIT = 100
+
+# Cache size bounds (entries) to prevent unbounded memory growth.
+MAX_TARGET_CACHE_ENTRIES = 20_000
+MAX_ACTIVITIES_CACHE_ENTRIES = 500
+
 
 def _get_chembl_client():
     """Lazy load ChEMBL client to avoid import-time failures when API is down."""
     global _new_client
     if _new_client is None:
-        try:
-            from chembl_webresource_client.new_client import new_client
-            _new_client = new_client
-        except Exception as e:
-            logger.error(f"Failed to connect to ChEMBL API: {e}")
-            raise ConnectionError(f"ChEMBL API is currently unavailable: {e}")
+        with _client_lock:
+            if _new_client is None:  # re-check under lock
+                try:
+                    _raise_sdk_page_size()
+                    from chembl_webresource_client.new_client import new_client
+                    _new_client = new_client
+                except Exception as e:
+                    logger.error(f"Failed to connect to ChEMBL API: {e}")
+                    raise ConnectionError(f"ChEMBL API is currently unavailable: {e}")
     return _new_client
 
+
+def _get_executor() -> ThreadPoolExecutor:
+    global _executor
+    if _executor is None:
+        with _executor_lock:
+            if _executor is None:  # re-check under lock
+                _executor = ThreadPoolExecutor(
+                    max_workers=8, thread_name_prefix="chembl-fetch"
+                )
+    return _executor
+
+
+class _BoundedCache:
+    """Minimal thread-safe dict cache with an insertion-order size bound.
+
+    Simple eviction: when full, drop the oldest entry (FIFO). Good enough for
+    reference-data caches; avoids unbounded memory growth in long-running
+    processes.
+    """
+
+    def __init__(self, max_entries: int):
+        self._max_entries = max_entries
+        self._data: dict = {}
+        self._lock = threading.Lock()
+
+    def get(self, key):
+        with self._lock:
+            return self._data.get(key)
+
+    def put(self, key, value) -> None:
+        with self._lock:
+            if key not in self._data and len(self._data) >= self._max_entries:
+                # Evict oldest inserted key.
+                oldest = next(iter(self._data))
+                del self._data[oldest]
+            self._data[key] = value
+
+    def contains(self, key) -> bool:
+        with self._lock:
+            return key in self._data
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._data)
+
+
 class ChEMBLClient:
-    # Class-level caches for persistence across requests
-    _target_cache = {}
-    _activities_cache = {}
+    # Class-level caches shared across instances, now thread-safe and bounded.
+    _target_cache = _BoundedCache(MAX_TARGET_CACHE_ENTRIES)
+    _activities_cache = _BoundedCache(MAX_ACTIVITIES_CACHE_ENTRIES)
 
     def __init__(self):
         self._molecule = None
@@ -48,34 +127,36 @@ class ChEMBLClient:
         return self._target
 
     def _get_target_cached(self, target_chembl_id: str) -> dict:
-        """
-        Fetch target data with caching to avoid repeated API calls.
-        """
-        if target_chembl_id not in self._target_cache:
-            self._target_cache[target_chembl_id] = self.target.get(target_chembl_id) or {}
-        return self._target_cache[target_chembl_id]
+        """Fetch target data with caching to avoid repeated API calls."""
+        cached = self._target_cache.get(target_chembl_id)
+        if cached is None:
+            cached = self.target.get(target_chembl_id) or {}
+            self._target_cache.put(target_chembl_id, cached)
+        return cached
 
     def _batch_fetch_targets(self, target_ids: list) -> None:
-        """
-        Batch fetch multiple targets at once and store in cache.
-        """
-        # Filter out already cached targets
-        uncached_ids = [tid for tid in target_ids if tid and tid not in self._target_cache]
+        """Batch fetch multiple targets at once and store in cache."""
+        uncached_ids = [tid for tid in target_ids if tid and not self._target_cache.contains(tid)]
 
         if not uncached_ids:
             return  # All already cached
 
         # Batch fetch all uncached targets in ONE API call
-        targets = list(self.target.filter(target_chembl_id__in=uncached_ids))
+        try:
+            targets = list(self.target.filter(target_chembl_id__in=uncached_ids)[:len(uncached_ids)])
+        except Exception as e:
+            # A failed batch should not poison already-cached results, but we
+            # must not cache empties either (the API may be transiently down).
+            logger.warning(f"Batch target fetch failed for {len(uncached_ids)} ids: {e}")
+            return
 
-        # Store in cache
         for t in targets:
-            self._target_cache[t.get('target_chembl_id')] = t
+            self._target_cache.put(t.get('target_chembl_id'), t)
 
         # Mark missing targets as empty dict to avoid re-fetching
         for tid in uncached_ids:
-            if tid not in self._target_cache:
-                self._target_cache[tid] = {}
+            if not self._target_cache.contains(tid):
+                self._target_cache.put(tid, {})
 
     def _extract_protein_classification(self, target_data: dict) -> str:
         """Return the exact protein_classification value from ChEMBL. '--' if missing."""
@@ -102,47 +183,56 @@ class ChEMBLClient:
 
     def _fetch_all_activities(self, inchi_key: str) -> list:
         """
-        Fetch the molecule + ALL its activities in a single round-trip.
-        Results are cached on the instance so repeated calls are free.
+        Fetch the molecule + its activities (bounded).
+        Results are cached on the class so repeated calls are free.
         """
-        if inchi_key in self._activities_cache:
-            return self._activities_cache[inchi_key]
+        cached = self._activities_cache.get(inchi_key)
+        if cached is not None:
+            return cached
 
         try:
-             # Optimization: Limit fields if possible, but the client might not support it easily
             compound = list(self.molecule.filter(molecule_structures__standard_inchi_key=inchi_key))
         except Exception as e:
             logger.error(f"Error fetching molecule for {inchi_key}: {e}")
+            # Do not cache failures; allow a later retry.
             return []
 
         if not compound:
-            self._activities_cache[inchi_key] = []
+            self._activities_cache.put(inchi_key, [])
             return []
 
         chembl_id = compound[0].get('molecule_chembl_id')
 
         try:
-             # Only fetching necessary fields could be faster, but we need most of them
-            activities = list(self.activity.filter(molecule_chembl_id=chembl_id))
+            # Slice-bounded fetch: the SDK's pagination stops at the slice
+            # stop, capping both payload size and HTTP round trips.
+            activities = list(
+                self.activity.filter(molecule_chembl_id=chembl_id)[:MAX_ACTIVITIES_PER_MOLECULE]
+            )
         except Exception as e:
-             logger.error(f"Error fetching activities for {chembl_id}: {e}")
-             return []
+            logger.error(f"Error fetching activities for {chembl_id}: {e}")
+            return []
 
-        # Batch-fetch ALL targets referenced by these activities in ONE call
+        # Batch-fetch ALL targets referenced by these activities in chunks.
         unique_target_ids = list(set(
             act.get('target_chembl_id') for act in activities if act.get('target_chembl_id')
         ))
 
-        # Split into chunks of 50 to avoid URL length issues or timeouts with massive lists
+        # Split into chunks of 50 to avoid URL length issues or timeouts.
         chunk_size = 50
         chunks = [unique_target_ids[i:i + chunk_size] for i in range(0, len(unique_target_ids), chunk_size)]
 
-        # Fetch chunks in PARALLEL to speed up loading
+        # Fetch chunks in PARALLEL on the shared executor; consume results so
+        # exceptions surface instead of being swallowed by executor.map.
         if chunks:
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                executor.map(self._batch_fetch_targets, chunks)
+            futures = [_get_executor().submit(self._batch_fetch_targets, chunk) for chunk in chunks]
+            for future in futures:
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.warning(f"Target chunk fetch failed: {e}")
 
-        self._activities_cache[inchi_key] = activities
+        self._activities_cache.put(inchi_key, activities)
         return activities
 
     def _enrich_activity(self, act: dict, include_target_details: bool = False) -> dict:
