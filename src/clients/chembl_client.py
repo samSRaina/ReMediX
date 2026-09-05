@@ -1,6 +1,7 @@
 import logging
 import math
 import re
+import statistics
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -566,6 +567,7 @@ class ChEMBLClient:
 
             measurement = {
                 'activity_type': std_type,
+                'standard_type': str(act.get('standard_type') or '') or std_type,
                 'activity_value': act.get('standard_value'),
                 'activity_units': act.get('standard_units'),
                 'relation': act.get('standard_relation'),
@@ -581,16 +583,19 @@ class ChEMBLClient:
 
             per_type = bucket['activity_summary'].setdefault(
                 std_type,
-                {'count': 0, 'representative_value_nm': None, 'units': set()},
+                {'count': 0, 'representative_value_nm': None, 'units': set(), 'values_nm': []},
             )
             per_type['count'] += 1
             units = str(act.get('standard_units') or '').strip()
             if units:
                 per_type['units'].add(units)
-            if normalized_nm is not None and (
-                per_type['representative_value_nm'] is None or normalized_nm < per_type['representative_value_nm']
-            ):
-                per_type['representative_value_nm'] = normalized_nm
+            if normalized_nm is not None and normalized_nm > 0:
+                per_type['values_nm'].append(normalized_nm)
+                if (
+                    per_type['representative_value_nm'] is None
+                    or normalized_nm < per_type['representative_value_nm']
+                ):
+                    per_type['representative_value_nm'] = normalized_nm
 
         output = []
         for gene_symbol in sorted(aggregated.keys()):
@@ -600,6 +605,7 @@ class ChEMBLClient:
                 summary[activity_type] = {
                     'count': data['count'],
                     'representative_value_nm': data['representative_value_nm'],
+                    'median_value_nm': statistics.median(data['values_nm']) if data['values_nm'] else None,
                     'units': sorted(data['units']),
                 }
             output.append(

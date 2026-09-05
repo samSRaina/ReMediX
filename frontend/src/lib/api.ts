@@ -46,8 +46,12 @@ export function getDrugBankByInchiKey(inchiKey: string) {
   return apiGet<DrugBankData>(`/api/drugbank/inchikey/${encodeURIComponent(inchiKey)}/properties`);
 }
 
-export function getBioactivityByInchiKey(inchiKey: string, standardType: string) {
-  const query = new URLSearchParams({ standard_type: standardType });
+export function getBioactivityByInchiKey(
+  inchiKey: string,
+  standardType: string,
+  include: 'activities' | 'all' = 'all',
+) {
+  const query = new URLSearchParams({ standard_type: standardType, include });
   return apiGet<BioactivityResponse>(`/api/chembl/inchikey/${encodeURIComponent(inchiKey)}/bioactivity?${query.toString()}`);
 }
 

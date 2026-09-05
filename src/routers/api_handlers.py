@@ -1,6 +1,6 @@
 from pathlib import Path
 import re
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -8,6 +8,7 @@ from fastapi.concurrency import run_in_threadpool
 from ..clients import chembl_client, creeds_client, drugbank_client, geneCards_client, pubchem_client
 from ..data_availability import require_dataset
 from ..utils import final_gene_score, remedix_scoring
+from ..utils.scoring_policies import ScoringPolicies
 
 _drugbank_client = drugbank_client.DrugBankClient()
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}
@@ -48,7 +49,20 @@ async def get_properties_by_inchikey(inchikey: str):
 
 
 # ChEMBL database endpoints
-async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str] = None):
+async def get_bioactivity_by_inchikey(
+    inchikey: str,
+    standard_type: Optional[str] = None,
+    include: Literal["activities", "all"] = "all",
+):
+    """Bioactivity for a compound, filtered by standard_type (IC50/AC50/Ki/...).
+
+    include=all (default): activities + gene_set + aggregated_targets — the
+    full payload, backward compatible.
+    include=activities: only the type-dependent rows. gene_set and
+    aggregated_targets are identical for every standard_type (they always use
+    the IC50/Ki/AC50 union), so switching types client-side needs only this
+    slice — ~1/2 to ~1/6 of the payload.
+    """
     chembl = chembl_client.ChEMBLClient()
     try:
         result = await run_in_threadpool(chembl.get_by_inchikey, inchikey, standard_type)
@@ -59,6 +73,10 @@ async def get_bioactivity_by_inchikey(inchikey: str, standard_type: Optional[str
     # matches". Uses a 1-row existence probe — never a full unfiltered fetch.
     if not result and not await run_in_threadpool(chembl.has_bioactivity_data, inchikey):
         raise HTTPException(status_code=404, detail=f"No bioactivity data found for '{inchikey}'")
+
+    if include == "activities":
+        return {"activities": result}
+
     gene_set = await run_in_threadpool(chembl.get_gene_set, inchikey)
     aggregated_targets = await run_in_threadpool(chembl.get_aggregated_targets_by_inchikey, inchikey)
     return {"activities": result, "gene_set": sorted(gene_set), "aggregated_targets": aggregated_targets}
@@ -89,20 +107,38 @@ async def get_final_gene_score(genes: str, disease: str):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-async def get_remedix_score(inchikey: str, disease: str):
+async def get_remedix_score(
+    inchikey: str,
+    disease: str,
+    assay_aggregation: Literal["median", "min", "mean"] | None = None,
+    strength_model: Literal["log_ramp", "legacy_inverse_log"] | None = None,
+    missing_activity_strength: float | None = None,
+    ambiguous_policy: Literal["unresolved", "exclude"] | None = None,
+):
     if not inchikey or not inchikey.strip():
         raise HTTPException(status_code=400, detail="InChIKey parameter is required")
     if not disease or not disease.strip():
         raise HTTPException(status_code=400, detail="Disease parameter is required")
+    if missing_activity_strength is not None and not 0.0 <= missing_activity_strength <= 1.0:
+        raise HTTPException(status_code=422, detail="missing_activity_strength must be within [0, 1]")
 
     require_dataset("creeds_signatures")
+
+    policies = ScoringPolicies.from_env().with_overrides(
+        assay_aggregation=assay_aggregation,
+        activity_strength_model=strength_model,
+        missing_activity_strength=missing_activity_strength,
+        ambiguous_policy=ambiguous_policy,
+    )
 
     chembl = chembl_client.ChEMBLClient()
     aggregated_targets = await run_in_threadpool(chembl.get_aggregated_targets_by_inchikey, inchikey)
     raw_activities = await run_in_threadpool(chembl.get_by_inchikey, inchikey)
 
     try:
-        scoring = await run_in_threadpool(remedix_scoring.calculate_remedix_score, aggregated_targets, disease)
+        scoring = await run_in_threadpool(
+            remedix_scoring.calculate_remedix_score, aggregated_targets, disease, policies
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

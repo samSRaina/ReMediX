@@ -191,38 +191,72 @@ export function GeneMatchPage() {
           ) : geneRecords.length === 0 ? (
             <p className="rounded-xl border border-dashed border-slate-300 p-6 text-sm text-slate-500">No scored gene records yet.</p>
           ) : (
-            <div className="table-shell">
-              <table className="table-ui">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Gene</th>
-                    <th className="px-3 py-2">U</th>
-                    <th className="px-3 py-2">D</th>
-                    <th className="px-3 py-2">DC</th>
-                    <th className="px-3 py-2">Disease Dir</th>
-                    <th className="px-3 py-2">Drug Action</th>
-                    <th className="px-3 py-2">Activity Strength</th>
-                    <th className="px-3 py-2">Class</th>
-                    <th className="px-3 py-2">Contribution</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {geneRecords.map((row) => (
-                    <tr key={row.gene}>
-                      <td className="px-3 py-2 font-medium">{row.gene}</td>
-                      <td className="px-3 py-2">{row.U}</td>
-                      <td className="px-3 py-2">{row.D}</td>
-                      <td className="px-3 py-2">{row.dc.toFixed(3)}</td>
-                      <td className="px-3 py-2">{row.disease_direction}</td>
-                      <td className="px-3 py-2">{row.drug_action}</td>
-                      <td className="px-3 py-2">{row.activity_strength.toFixed(3)}</td>
-                      <td className="px-3 py-2">{row.classification}</td>
-                      <td className="px-3 py-2">{row.gene_contribution.toFixed(3)}</td>
+            <>
+              <p className="mb-3 text-xs leading-relaxed text-slate-500">
+                {score
+                  ? `${score.matched_target_count} of the compound's ${score.target_gene_total} ChEMBL targets appear in the ${score.disease_total}-gene disease signature — only those genes are scored. Identical rows across different compounds mean they share the same matched targets (common for HTS-panel deposits like DRUGMATRIX).`
+                  : null}
+              </p>
+              {geneRecords.some((row) => row.activity_strength_defaulted) ? (
+                <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                  Rows flagged <span className="font-semibold">no potency data</span> have ChEMBL measurements whose values could not be converted to nM, so their activity strength falls back to the policy default (0.5) and the contribution factor is 0.85. &quot;nM data&quot; shows how many measurements had valid values (e.g. 0/2 = none).
+                </p>
+              ) : null}
+              <div className="table-shell">
+                <table className="table-ui">
+                  <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Gene</th>
+                      <th className="px-3 py-2">U</th>
+                      <th className="px-3 py-2">D</th>
+                      <th className="px-3 py-2">DC</th>
+                      <th className="px-3 py-2">Disease Dir</th>
+                      <th className="px-3 py-2">Drug Action</th>
+                      <th className="px-3 py-2">Activity Types</th>
+                      <th className="px-3 py-2">Rep. Value (nM)</th>
+                      <th className="px-3 py-2">N mM Data</th>
+                      <th className="px-3 py-2">Activity Strength</th>
+                      <th className="px-3 py-2">Class</th>
+                      <th className="px-3 py-2">Contribution</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {geneRecords.map((row) => (
+                      <tr key={row.gene}>
+                        <td className="px-3 py-2 font-medium">{row.gene}</td>
+                        <td className="px-3 py-2">{row.U}</td>
+                        <td className="px-3 py-2">{row.D}</td>
+                        <td className="px-3 py-2">{row.dc.toFixed(3)}</td>
+                        <td className="px-3 py-2">{row.disease_direction}</td>
+                        <td className="px-3 py-2">{row.drug_action}</td>
+                        <td className="px-3 py-2">{row.activity_type.join(', ')}</td>
+                        <td className="px-3 py-2">
+                          {row.representative_value_nm != null
+                            ? `${row.representative_value_nm.toLocaleString()}${row.representative_aggregation ? ` (${row.representative_aggregation})` : ''}`
+                            : '--'}
+                        </td>
+                        <td className="px-3 py-2">
+                          {row.valid_measurement_count ?? '--'}/{row.supporting_measurements}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span>{row.activity_strength.toFixed(3)}</span>
+                          {row.activity_strength_defaulted ? (
+                            <span
+                              title="No measurement had a value convertible to nM — strength is the policy default"
+                              className="ml-2 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700"
+                            >
+                              no potency data
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-2">{row.classification}</td>
+                        <td className="px-3 py-2">{row.gene_contribution.toFixed(3)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </Surface>
 

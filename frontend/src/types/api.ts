@@ -47,7 +47,7 @@ export interface BioactivityRecord {
 
 export interface BioactivityResponse {
   activities: BioactivityRecord[];
-  gene_set: string[];
+  gene_set?: string[];
   aggregated_targets?: AggregatedTargetRecord[];
 }
 
@@ -79,6 +79,7 @@ export interface FinalGeneScoreResponse {
 
 export interface AggregatedTargetMeasurement {
   activity_type?: string;
+  standard_type?: string;
   activity_value?: string | number;
   activity_units?: string;
   relation?: string;
@@ -98,8 +99,26 @@ export interface AggregatedTargetRecord {
   target_organisms: string[];
   protein_target_classifications: string[];
   measurements: AggregatedTargetMeasurement[];
-  activity_summary: Record<string, { count: number; representative_value_nm: number | null; units: string[] }>;
+  activity_summary: Record<
+    string,
+    {
+      count: number;
+      representative_value_nm: number | null;
+      median_value_nm?: number | null;
+      units: string[];
+    }
+  >;
   measurement_count: number;
+}
+
+export interface ScoringPoliciesInfo {
+  assay_aggregation: 'median' | 'min' | 'mean';
+  activity_strength_model: 'log_ramp' | 'legacy_inverse_log';
+  activity_strength_formula: string;
+  missing_activity_strength: number;
+  ambiguous_policy: 'unresolved' | 'exclude';
+  gene_contribution_formula: string;
+  source: string;
 }
 
 export interface RemedixGeneRecord {
@@ -111,6 +130,10 @@ export interface RemedixGeneRecord {
   drug_action: 'INHIBITION' | 'ACTIVATION' | 'UNKNOWN';
   activity_type: string[];
   activity_strength: number;
+  activity_strength_defaulted?: boolean;
+  representative_value_nm?: number | null;
+  representative_aggregation?: 'median' | 'min' | 'mean' | null;
+  valid_measurement_count?: number;
   classification: 'BENEFICIAL' | 'HARMFUL' | 'UNRESOLVED';
   gene_contribution: number;
   activity_value_nm: number | null;
@@ -138,6 +161,10 @@ export interface RemedixScoringSummary {
   target_coverage_percent: number;
   raw_remedix_score: number;
   remedix_score: number;
+  policies?: ScoringPoliciesInfo;
+  disease_total: number;
+  target_gene_total: number;
+  matched_target_count: number;
   directional_evidence: {
     model: string;
     source_entry_count: number;

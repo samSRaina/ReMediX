@@ -95,22 +95,36 @@ export function HomePage() {
 
   useEffect(() => {
     if (!currentInchiKey) return;
+    let cancelled = false;
     async function refreshBioactivity() {
+      // First load for this compound: fetch everything (activities + static
+      // gene_set / aggregated_targets). Subsequent type switches fetch only
+      // the type-dependent rows (include=activities) — the static parts are
+      // identical for every standard_type.
+      const isFirstLoadForCompound = !geneSet.length;
       setIsLoadingBioactivity(true);
       try {
-        const payload = await getBioactivityByInchiKey(currentInchiKey, bioactivityType);
+        const payload = await getBioactivityByInchiKey(
+          currentInchiKey,
+          bioactivityType,
+          isFirstLoadForCompound ? 'all' : 'activities',
+        );
+        if (cancelled) return;
         setBioactivityRows(payload.activities ?? []);
-        setGeneSet(payload.gene_set ?? []);
+        if (isFirstLoadForCompound) setGeneSet(payload.gene_set ?? []);
       } catch (error) {
+        if (cancelled) return;
         setBioactivityRows([]);
-        setGeneSet([]);
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load bioactivity');
       } finally {
-        setIsLoadingBioactivity(false);
+        if (!cancelled) setIsLoadingBioactivity(false);
       }
     }
     void refreshBioactivity();
-  }, [bioactivityType, currentInchiKey]);
+    return () => {
+      cancelled = true;
+    };
+  }, [bioactivityType, currentInchiKey, geneSet.length]);
 
   const filteredSortedBioactivity = useMemo(() => {
     const query = bioFilter.trim().toLowerCase();

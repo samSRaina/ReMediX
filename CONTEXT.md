@@ -389,6 +389,93 @@ All verification below ran on this machine after each change.
   unknown compound → 404; `/api/remedix/.../score` → 200 with score 0.1173 (raw
   activities path still the bounded unfiltered 2000-row view); target endpoint 200.
 
+### Scoring policies spec v2 — configurable & traceable (2026 session #3)
+- **Why**: the 21-step pipeline spec (pvt.txt, updated v2) resolved the 4 open architectural
+  questions; implementation makes them explicit, configurable policies with full traceability
+  (Option B). ChEMBL Step 3 now mandates **median** aggregation; Step 9 a **bounded log ramp**
+  (`max(0, min(1, 1-(log10(nM)-1)/3))`) with **0.5 default** for missing nM; Step 8 U==D →
+  AMBIGUOUS + UNRESOLVED + 0 contribution; Step 21 original ChEMBL type casing.
+- **`src/utils/scoring_policies.py` (NEW)**: frozen `ScoringPolicies` dataclass —
+  `assay_aggregation` (median|min|mean, default median), `activity_strength_model`
+  (log_ramp|legacy_inverse_log, default log_ramp), `missing_activity_strength` (default 0.5),
+  `ambiguous_policy` (unresolved|exclude, default unresolved). `from_env()` reads
+  `REMEDIX_SCORING_*` vars; `with_overrides()` for per-request; `describe()` snapshot embedded
+  in every response. Illegal values → ValueError (→ 422 at the endpoint).
+- **`src/utils/remedix_scoring.py` (rewritten)**: `_representative_nm()` collapses per-gene
+  valid nM values by policy (median default); `_activity_strength_from_nm()` implements both
+  models, returns `(strength, defaulted_flag)`; legacy model hardened (denominator ≤ 0 → 1.0 —
+  the historic 10 nM `ZeroDivisionError` can never recur, asserted by tests). Gene records
+  carry traceability: `representative_value_nm`, `representative_aggregation`,
+  `valid_measurement_count`, `activity_strength_defaulted`, `activity_type` in original ChEMBL
+  casing (`["AC50","IC50","Ki"]`). Response embeds `"policies"`. `CONSENSUS_WEIGHT=0.7` /
+  `POTENCY_WEIGHT=0.3` named constants. Legacy behavioral note: `min`-aggregation +
+  `legacy_inverse_log` reproduces the old scores exactly (verified: aspirin vs "cocaine
+  dependence" raw -0.6948 legacy vs -0.6765 spec v2).
+- **`src/clients/chembl_client.py`**: measurements gain `standard_type` (original casing);
+  per-type `activity_summary` gains `median_value_nm` (min-based
+  `representative_value_nm` kept for display continuity; scoring uses the policy value).
+- **`src/routers/api_handlers.py`**: `/api/remedix/inchikey/{key}/score` accepts optional
+  validated query params `assay_aggregation`, `strength_model`, `missing_activity_strength`
+  (0–1), `ambiguous_policy`; effective policies echoed in `scoring.policies`
+  (request > env > spec default).
+- **`frontend/src/types/api.ts`**: `ScoringPoliciesInfo` + new optional traceability fields
+  (no page changes; `tsc --noEmit` clean).
+- **`tests/test_scoring_policies.py` (NEW)**: 20 tests, stdlib unittest runner
+  (`python -m tests.test_scoring_policies`) + pytest compatible, network-free (CREEDS
+  consensus mocked). Covers: log_ramp anchors (1/10/100 nM→1.0/1.0/0.667, 10 µM→0) and
+  monotonicity; legacy 10 nM crash regression + anchors (100→1.0, 1 µM→0.5, 10 µM→0.333);
+  median (odd/even, invalid-ignored, none-valid) / min / mean; missing-value default +
+  configurability; U==D unresolved-vs-exclude; policy validation; env loading; end-to-end
+  fixture with hand-computed B/H/coverages/public score; policy echo.
+- **Verification**: 20/20 tests green; `compileall` clean; `tsc --noEmit` clean; live endpoint
+  A/B — spec defaults raw −0.6765 vs legacy −0.6948 vs missing=0.9 raw −0.749 (all 200);
+  all 5 illegal param values → 422; ADORA3 median (30000 nM, 2 measurements) hand-verified;
+  exclude-ambiguous drops 14 rows (70→56) with matched count and B/H unchanged (those genes
+  contribute 0 by definition).
+
+### Gene-level Traceability UI + "identical output for every medicine" investigation (2026 session #3, cont.)
+- **User symptom**: the Gene-level Traceability table on GeneMatchPage showed the same 2 rows
+  (MMP9 BENEFICIAL 0.850, PTGS1 HARMFUL) "for multiple medicines". Suspected stale state/cache.
+- **Investigation result — NOT a bug; three compounding data realities** (all verified against
+  the live ChEMBL REST API, bypassing our client and its sqlite cache):
+  1. The matrix only contains the intersection of the compound's typed targets with the
+     disease signature. "pulmonary hypertension" has 600 signature genes; aspirin's 155 typed
+     targets ∩ 600 = 2 genes (MMP9, PTGS1). Small matrices are the norm for targeted diseases
+     vs HTS-panel-rich compounds — aspirin had 48 of 333 diseases with a 2-gene intersection.
+  2. Many deposited rows are **DRUGMATRIX-style HTS panel data with `standard_value: null`**
+     (aspirin: 287/743 typed rows 39% null; paracetamol 64% null). The MMP9 rows for aspirin,
+     paracetamol, metformin, sildenafil etc. all come from the same DRUGMATRIX panel
+     (doc CHEMBL1909046, assay CHEMBL1909197) — so those compounds genuinely share
+     `target={MMP9,PTGS1}, strength=defaulted 0.5` rows on this disease. Verified live: each
+     of 9 medicines (aspirin, paracetamol, diclofenac, metformin, warfarin, sildenafil, statin,
+     losartan, amlodipine) returns matched=2 with identical gene rows. Not a cache leak:
+     per-(inchikey, type-tuple) cache keys were audited and cross-drug outputs verified
+     distinct where the data differs (ibuprofen/celecoxib/naproxen → 3 rows incl. ALOX5).
+  3. The old UI hid the cause: strength 0.500 rendered identically for "measured 0.5" and
+     "no usable value → policy default".
+- **Fix — surface the traceability that the API already returned**
+  (`valid_measurement_count`, `activity_strength_defaulted`, `representative_value_nm`,
+  `representative_aggregation` were in the payload since spec v2 but never displayed):
+  - `GeneMatchPage.tsx`: table gains **Activity Types** (original ChEMBL casing), **Rep. Value
+    (nM)** with aggregation mode, **N mM Data** (`valid/total` measurements), and a
+    **"no potency data"** amber badge on defaulted rows; context line explains matrix size
+    ("2 of the compound's 155 targets appear in the 600-gene disease signature") and the
+    DRUGMATRIX duplication effect; explainer banner when any row is defaulted.
+  - `types/api.ts`: `disease_total`, `target_gene_total`, `matched_target_count` added to
+    `RemedixScoringSummary` (non-optional; backend already always sends them).
+  - `HomePage.tsx` + `api_handlers.py` (same session, earlier): bioactivity tab switch no
+    longer re-fetches static gene_set/aggregated_targets (`include=activities` slice; first
+    load per compound fetches `include=all`).
+- **Verification**: `tsc --noEmit` clean, `compileall` clean, 20/20 tests green; live flow
+  through uvicorn: 20 medicines × "pulmonary hypertension" batch-scored — outputs vary by
+  drug where data varies (identical groups are data-real, e.g. 9 medicines share the
+  DRUGMATRIX MMP9+PTGS1 rows); vite serves the updated page (new columns present in served
+  module).
+- **Design note for future sessions**: strength 0.5 defaults make DRUGMATRIX-heavy rows
+  contribute 0.85×DC — if that overcredits valueless HTS evidence, consider a policy like
+  `missing_activity_strength=0` or excluding `standard_value IS NULL` rows at fetch; both are
+  now one-line config/routing changes.
+
 ### Still open (from §5, not in this session's scope)
 - Blocking-but-bounded ChEMBL work still runs in threadpool workers (fine); a full
   httpx/async rewrite is optional future work.
